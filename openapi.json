@@ -1,0 +1,3368 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+        "title": "Ledga.io API",
+        "description": "Programmatic double-entry ledgers for finance, gaming and multi-tenant SaaS.",
+        "contact": {
+            "email": "support@ledga.io"
+        },
+        "version": "1.0.0"
+    },
+    "servers": [
+        {
+            "url": "https://ledga.io",
+            "description": "Production"
+        },
+        {
+            "url": "http://localhost:15080",
+            "description": "Development"
+        }
+    ],
+    "paths": {
+        "/api/v1/accounts": {
+            "get": {
+                "tags": [
+                    "Accounts"
+                ],
+                "summary": "List all accounts in a ledger",
+                "description": "Display a listing of accounts\n\nUses cursor-based pagination for consistency. See docs/api/PAGINATION.md\nFor hierarchical view, use tree=true parameter.",
+                "operationId": "getAccounts",
+                "parameters": [
+                    {
+                        "name": "type",
+                        "in": "query",
+                        "description": "Filter by account type",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "asset",
+                                "liability",
+                                "equity",
+                                "revenue",
+                                "expense"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "active",
+                        "in": "query",
+                        "description": "Filter by active status",
+                        "required": false,
+                        "schema": {
+                            "type": "boolean"
+                        }
+                    },
+                    {
+                        "name": "parent_id",
+                        "in": "query",
+                        "description": "Filter by parent account UUID",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "search",
+                        "in": "query",
+                        "description": "Search in code or name",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "tree",
+                        "in": "query",
+                        "description": "Return hierarchical tree structure (non-paginated)",
+                        "required": false,
+                        "schema": {
+                            "type": "boolean",
+                            "default": false
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "description": "Number of items per page (max 100)",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 25,
+                            "maximum": 100
+                        }
+                    },
+                    {
+                        "name": "cursor",
+                        "in": "query",
+                        "description": "Cursor for pagination",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/Account"
+                                            }
+                                        },
+                                        "meta": {
+                                            "$ref": "#/components/schemas/PaginationMeta"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "description": "Ledger not found"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Accounts"
+                ],
+                "summary": "Create a new account",
+                "description": "Store a newly created account",
+                "operationId": "createAccount",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "code",
+                                    "name",
+                                    "type"
+                                ],
+                                "properties": {
+                                    "code": {
+                                        "description": "Account code (must be unique within ledger)",
+                                        "type": "string",
+                                        "example": "1000"
+                                    },
+                                    "name": {
+                                        "description": "Account name",
+                                        "type": "string",
+                                        "example": "Cash"
+                                    },
+                                    "type": {
+                                        "type": "string",
+                                        "enum": [
+                                            "asset",
+                                            "liability",
+                                            "equity",
+                                            "revenue",
+                                            "expense"
+                                        ],
+                                        "example": "asset"
+                                    },
+                                    "normal_balance": {
+                                        "description": "Normal balance side (defaults based on type)",
+                                        "type": "string",
+                                        "enum": [
+                                            "debit",
+                                            "credit"
+                                        ],
+                                        "example": "debit"
+                                    },
+                                    "parent_id": {
+                                        "description": "Parent account UUID for hierarchical structure",
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "nullable": true
+                                    },
+                                    "category": {
+                                        "description": "Account category",
+                                        "type": "string",
+                                        "example": "cash"
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "is_active": {
+                                        "type": "boolean",
+                                        "default": true
+                                    },
+                                    "is_system": {
+                                        "description": "System accounts cannot be deleted",
+                                        "type": "boolean",
+                                        "default": false
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Account created successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Account"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Validation error"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/accounts/{accountId}": {
+            "get": {
+                "tags": [
+                    "Accounts"
+                ],
+                "summary": "Get a specific account",
+                "description": "Display the specified account",
+                "operationId": "getAccount",
+                "parameters": [
+                    {
+                        "name": "accountId",
+                        "in": "path",
+                        "description": "Account UUID",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Account"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "description": "Account not found"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "Accounts"
+                ],
+                "summary": "Update an account",
+                "description": "Update the specified account",
+                "operationId": "updateAccount",
+                "parameters": [
+                    {
+                        "name": "accountId",
+                        "in": "path",
+                        "description": "Account UUID",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Cash - Updated"
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "is_active": {
+                                        "type": "boolean"
+                                    },
+                                    "metadata": {
+                                        "type": "object",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Account updated successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Account"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Validation error"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "description": "Account not found"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Accounts"
+                ],
+                "summary": "Delete an account",
+                "description": "Remove the specified account",
+                "operationId": "deleteAccount",
+                "parameters": [
+                    {
+                        "name": "accountId",
+                        "in": "path",
+                        "description": "Account UUID",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Account deleted successfully"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "description": "Account not found"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/accounts/{accountId}/balance-history": {
+            "get": {
+                "tags": [
+                    "Accounts"
+                ],
+                "summary": "Get account balance history",
+                "description": "Get account balance history",
+                "operationId": "getAccountBalanceHistory",
+                "parameters": [
+                    {
+                        "name": "accountId",
+                        "in": "path",
+                        "description": "Account UUID",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "start_date",
+                        "in": "query",
+                        "description": "Start date for history",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "end_date",
+                        "in": "query",
+                        "description": "End date for history",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Balance history retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "account": {
+                                            "type": "object"
+                                        },
+                                        "period": {
+                                            "type": "object"
+                                        },
+                                        "history": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object"
+                                            }
+                                        },
+                                        "ending_balance": {
+                                            "type": "number"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "description": "Account not found"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/accounts/initialize-defaults": {
+            "post": {
+                "tags": [
+                    "Accounts"
+                ],
+                "summary": "Initialize default chart of accounts for a ledger",
+                "description": "Initialize default chart of accounts",
+                "operationId": "initializeDefaultAccounts",
+                "responses": {
+                    "200": {
+                        "description": "Default accounts created successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "accounts_count": {
+                                            "type": "integer",
+                                            "example": 15
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Ledger already has accounts"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/accounts/{accountId}/entries": {
+            "get": {
+                "tags": [
+                    "Accounts"
+                ],
+                "summary": "Get all entries for an account with rolling balance",
+                "description": "Get all entries for an account with rolling balance calculation\n\nReturns entries in chronological order by effective_date with a calculated\nbalance_after field showing the running balance after each entry.",
+                "operationId": "getAccountEntries",
+                "parameters": [
+                    {
+                        "name": "accountId",
+                        "in": "path",
+                        "description": "Account UUID",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "start_date",
+                        "in": "query",
+                        "description": "Filter entries from this date (inclusive)",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date",
+                            "example": "2025-01-01"
+                        }
+                    },
+                    {
+                        "name": "end_date",
+                        "in": "query",
+                        "description": "Filter entries up to this date (inclusive)",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date",
+                            "example": "2025-12-31"
+                        }
+                    },
+                    {
+                        "name": "layer",
+                        "in": "query",
+                        "description": "Filter by transaction layer",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "SETTLED",
+                                "PENDING",
+                                "ENCUMBRANCE"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "description": "Number of items per page (max 100)",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 25,
+                            "maximum": 100
+                        }
+                    },
+                    {
+                        "name": "cursor",
+                        "in": "query",
+                        "description": "Cursor for pagination",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Entries retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "string",
+                                                        "format": "uuid"
+                                                    },
+                                                    "transaction_id": {
+                                                        "type": "string",
+                                                        "format": "uuid"
+                                                    },
+                                                    "account_id": {
+                                                        "type": "string",
+                                                        "format": "uuid"
+                                                    },
+                                                    "account_code": {
+                                                        "type": "string",
+                                                        "example": "1000"
+                                                    },
+                                                    "type": {
+                                                        "type": "string",
+                                                        "enum": [
+                                                            "debit",
+                                                            "credit"
+                                                        ]
+                                                    },
+                                                    "amount": {
+                                                        "type": "string",
+                                                        "example": "100.00"
+                                                    },
+                                                    "description": {
+                                                        "type": "string",
+                                                        "nullable": true
+                                                    },
+                                                    "layer": {
+                                                        "type": "string",
+                                                        "enum": [
+                                                            "SETTLED",
+                                                            "PENDING",
+                                                            "ENCUMBRANCE"
+                                                        ]
+                                                    },
+                                                    "effective_date": {
+                                                        "type": "string",
+                                                        "format": "date"
+                                                    },
+                                                    "balance_after": {
+                                                        "description": "Running balance after this entry",
+                                                        "type": "string",
+                                                        "example": "1000.00"
+                                                    },
+                                                    "transaction": {
+                                                        "properties": {
+                                                            "reference": {
+                                                                "type": "string"
+                                                            },
+                                                            "description": {
+                                                                "type": "string"
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        },
+                                        "meta": {
+                                            "properties": {
+                                                "account": {
+                                                    "properties": {
+                                                        "id": {
+                                                            "type": "string",
+                                                            "format": "uuid"
+                                                        },
+                                                        "code": {
+                                                            "type": "string"
+                                                        },
+                                                        "name": {
+                                                            "type": "string"
+                                                        },
+                                                        "normal_balance": {
+                                                            "type": "string",
+                                                            "enum": [
+                                                                "debit",
+                                                                "credit"
+                                                            ]
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                },
+                                                "pagination": {
+                                                    "$ref": "#/components/schemas/PaginationMeta"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "description": "Account not found"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/accounts/{accountId}/balance": {
+            "get": {
+                "tags": [
+                    "Accounts"
+                ],
+                "summary": "Get account balance with layer details",
+                "description": "Get account balance with layer details",
+                "operationId": "getAccountBalance",
+                "parameters": [
+                    {
+                        "name": "accountId",
+                        "in": "path",
+                        "description": "Account UUID",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "as_of_date",
+                        "in": "query",
+                        "description": "Calculate balance as of this date",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "layer",
+                        "in": "query",
+                        "description": "Filter by specific layer",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "SETTLED",
+                                "PENDING",
+                                "ENCUMBRANCE"
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Balance retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "settled": {
+                                            "type": "string",
+                                            "example": "1000.00"
+                                        },
+                                        "pending": {
+                                            "type": "string",
+                                            "example": "50.00"
+                                        },
+                                        "encumbered": {
+                                            "type": "string",
+                                            "example": "100.00"
+                                        },
+                                        "available": {
+                                            "type": "string",
+                                            "example": "950.00"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "description": "Account not found"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/account-sets": {
+            "get": {
+                "tags": [
+                    "Account Sets"
+                ],
+                "summary": "List all account sets",
+                "description": "Display a listing of account sets\n\nUses cursor-based pagination for consistency. See docs/api/PAGINATION.md",
+                "operationId": "getAccountSets",
+                "parameters": [
+                    {
+                        "name": "search",
+                        "in": "query",
+                        "description": "Search in code or name",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "description": "Number of items per page (max 100)",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 25,
+                            "maximum": 100
+                        }
+                    },
+                    {
+                        "name": "cursor",
+                        "in": "query",
+                        "description": "Cursor for pagination",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/AccountSet"
+                                            }
+                                        },
+                                        "meta": {
+                                            "$ref": "#/components/schemas/PaginationMeta"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Account Sets"
+                ],
+                "summary": "Create a new account set",
+                "description": "Store a newly created account set",
+                "operationId": "createAccountSet",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "code",
+                                    "name"
+                                ],
+                                "properties": {
+                                    "code": {
+                                        "description": "Unique code for this set",
+                                        "type": "string",
+                                        "example": "OPERATING_EXPENSES"
+                                    },
+                                    "name": {
+                                        "description": "Display name",
+                                        "type": "string",
+                                        "example": "Operating Expenses"
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "metadata": {
+                                        "type": "object",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Account set created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AccountSet"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Validation error"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/account-sets/{accountSetId}": {
+            "get": {
+                "tags": [
+                    "Account Sets"
+                ],
+                "summary": "Get a specific account set",
+                "description": "Display the specified account set",
+                "operationId": "getAccountSet",
+                "parameters": [
+                    {
+                        "name": "accountSetId",
+                        "in": "path",
+                        "description": "Account Set UUID",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AccountSet"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "description": "Account set not found"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "Account Sets"
+                ],
+                "summary": "Update an account set",
+                "description": "Update the specified account set",
+                "operationId": "updateAccountSet",
+                "parameters": [
+                    {
+                        "name": "accountSetId",
+                        "in": "path",
+                        "description": "Account Set UUID",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "code",
+                                    "name"
+                                ],
+                                "properties": {
+                                    "code": {
+                                        "type": "string"
+                                    },
+                                    "name": {
+                                        "type": "string"
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "metadata": {
+                                        "type": "object",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Account set updated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AccountSet"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Validation error"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "description": "Account set not found"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Account Sets"
+                ],
+                "summary": "Delete an account set",
+                "description": "Remove the specified account set",
+                "operationId": "deleteAccountSet",
+                "parameters": [
+                    {
+                        "name": "accountSetId",
+                        "in": "path",
+                        "description": "Account Set UUID",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Account set deleted"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "description": "Account set not found"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/account-sets/{accountSetId}/members": {
+            "post": {
+                "tags": [
+                    "Account Sets"
+                ],
+                "summary": "Add an account or nested set to this account set",
+                "description": "Add a member to the account set",
+                "operationId": "addAccountSetMember",
+                "parameters": [
+                    {
+                        "name": "accountSetId",
+                        "in": "path",
+                        "description": "Account Set UUID",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "member_type",
+                                    "member_id"
+                                ],
+                                "properties": {
+                                    "member_type": {
+                                        "type": "string",
+                                        "enum": [
+                                            "account",
+                                            "account_set"
+                                        ],
+                                        "example": "account"
+                                    },
+                                    "member_id": {
+                                        "description": "UUID of account or account set",
+                                        "type": "string",
+                                        "format": "uuid"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Member added"
+                    },
+                    "400": {
+                        "description": "Validation error"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "description": "Account set not found"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Account Sets"
+                ],
+                "summary": "Remove an account or nested set from this account set",
+                "description": "Remove a member from the account set",
+                "operationId": "removeAccountSetMember",
+                "parameters": [
+                    {
+                        "name": "accountSetId",
+                        "in": "path",
+                        "description": "Account Set UUID",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "member_type",
+                                    "member_id"
+                                ],
+                                "properties": {
+                                    "member_type": {
+                                        "type": "string",
+                                        "enum": [
+                                            "account",
+                                            "account_set"
+                                        ]
+                                    },
+                                    "member_id": {
+                                        "type": "string",
+                                        "format": "uuid"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Member removed"
+                    },
+                    "400": {
+                        "description": "Validation error"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "description": "Account set or member not found"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/account-sets/{accountSetId}/balance": {
+            "get": {
+                "tags": [
+                    "Account Sets"
+                ],
+                "summary": "Get aggregated balance for all accounts in this set",
+                "description": "Get aggregated balance for the account set",
+                "operationId": "getAccountSetBalance",
+                "parameters": [
+                    {
+                        "name": "accountSetId",
+                        "in": "path",
+                        "description": "Account Set UUID",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Balance retrieved",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "account_set_id": {
+                                            "type": "string",
+                                            "format": "uuid"
+                                        },
+                                        "account_set_code": {
+                                            "type": "string"
+                                        },
+                                        "account_set_name": {
+                                            "type": "string"
+                                        },
+                                        "total_balance": {
+                                            "type": "string",
+                                            "example": "1000.00"
+                                        },
+                                        "currency": {
+                                            "type": "string",
+                                            "example": "USD"
+                                        },
+                                        "account_count": {
+                                            "type": "integer"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "description": "Account set not found"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/account-sets/{accountSetId}/accounts": {
+            "get": {
+                "tags": [
+                    "Account Sets"
+                ],
+                "summary": "Get all accounts in this set (recursively includes nested sets)",
+                "description": "Get all accounts in the account set (recursively)",
+                "operationId": "getAccountSetAccounts",
+                "parameters": [
+                    {
+                        "name": "accountSetId",
+                        "in": "path",
+                        "description": "Account Set UUID",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Accounts retrieved",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/Account"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "description": "Account set not found"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/journals": {
+            "get": {
+                "tags": [
+                    "Journals"
+                ],
+                "summary": "List all journals",
+                "description": "Display a listing of journals for a ledger.",
+                "operationId": "getJournals",
+                "parameters": [
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "description": "Filter by status",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "active",
+                                "closed"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "search",
+                        "in": "query",
+                        "description": "Search in code or name",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "description": "Number of items per page",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 25
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/Journal"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Journals"
+                ],
+                "summary": "Create a new journal",
+                "description": "Store a newly created journal.",
+                "operationId": "createJournal",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "code",
+                                    "name"
+                                ],
+                                "properties": {
+                                    "code": {
+                                        "description": "Unique code within ledger",
+                                        "type": "string",
+                                        "example": "SALES"
+                                    },
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Sales Journal"
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "status": {
+                                        "type": "string",
+                                        "default": "active",
+                                        "enum": [
+                                            "active",
+                                            "closed"
+                                        ]
+                                    },
+                                    "metadata": {
+                                        "type": "object",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Journal created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Journal"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "409": {
+                        "description": "Journal code already exists"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/journals/{journalId}": {
+            "get": {
+                "tags": [
+                    "Journals"
+                ],
+                "summary": "Get a specific journal",
+                "description": "Display the specified journal.",
+                "operationId": "getJournal",
+                "parameters": [
+                    {
+                        "name": "journalId",
+                        "in": "path",
+                        "description": "Journal UUID",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Journal"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "description": "Journal not found"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "Journals"
+                ],
+                "summary": "Update a journal",
+                "description": "Update the specified journal.",
+                "operationId": "updateJournal",
+                "parameters": [
+                    {
+                        "name": "journalId",
+                        "in": "path",
+                        "description": "Journal UUID",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "code": {
+                                        "type": "string"
+                                    },
+                                    "name": {
+                                        "type": "string"
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "status": {
+                                        "type": "string",
+                                        "enum": [
+                                            "active",
+                                            "closed"
+                                        ]
+                                    },
+                                    "metadata": {
+                                        "type": "object",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Journal updated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Journal"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Forbidden (cannot rename DEFAULT journal)"
+                    },
+                    "404": {
+                        "description": "Journal not found"
+                    },
+                    "409": {
+                        "description": "Journal code already exists"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Journals"
+                ],
+                "summary": "Delete a journal",
+                "description": "Remove the specified journal.",
+                "operationId": "deleteJournal",
+                "parameters": [
+                    {
+                        "name": "journalId",
+                        "in": "path",
+                        "description": "Journal UUID",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Journal deleted"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Forbidden (cannot delete DEFAULT journal)"
+                    },
+                    "404": {
+                        "description": "Journal not found"
+                    },
+                    "409": {
+                        "description": "Cannot delete journal with existing transactions"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/journals/{journalId}/statistics": {
+            "get": {
+                "tags": [
+                    "Journals"
+                ],
+                "summary": "Get journal statistics",
+                "description": "Get journal statistics.",
+                "operationId": "getJournalStatistics",
+                "parameters": [
+                    {
+                        "name": "journalId",
+                        "in": "path",
+                        "description": "Journal UUID",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Statistics retrieved",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "total_transactions": {
+                                            "type": "integer"
+                                        },
+                                        "posted_transactions": {
+                                            "type": "integer"
+                                        },
+                                        "pending_transactions": {
+                                            "type": "integer"
+                                        },
+                                        "reversed_transactions": {
+                                            "type": "integer"
+                                        },
+                                        "last_transaction_date": {
+                                            "type": "string",
+                                            "format": "date-time",
+                                            "nullable": true
+                                        },
+                                        "total_accounts_affected": {
+                                            "type": "integer"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "description": "Journal not found"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/reports/trial-balance": {
+            "get": {
+                "tags": [
+                    "Reports"
+                ],
+                "summary": "Get trial balance report",
+                "description": "Returns all system accounts with their debit/credit balances, plus a rollup of all user accounts. Ensures debits equal credits.",
+                "operationId": "getTrialBalance",
+                "parameters": [
+                    {
+                        "name": "layer",
+                        "in": "query",
+                        "description": "Transaction layer to report on",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "settled",
+                            "enum": [
+                                "settled",
+                                "pending",
+                                "encumbrance"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "as_of_date",
+                        "in": "query",
+                        "description": "Report balances as of this date",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Trial balance report",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "as_of_date": {
+                                            "type": "string",
+                                            "format": "date"
+                                        },
+                                        "layer": {
+                                            "type": "string"
+                                        },
+                                        "accounts": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object"
+                                            }
+                                        },
+                                        "totals": {
+                                            "properties": {
+                                                "total_debits": {
+                                                    "type": "string",
+                                                    "example": "10000.00"
+                                                },
+                                                "total_credits": {
+                                                    "type": "string",
+                                                    "example": "10000.00"
+                                                },
+                                                "is_balanced": {
+                                                    "type": "boolean"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/reports/income-statement": {
+            "get": {
+                "tags": [
+                    "Reports"
+                ],
+                "summary": "Get income statement report",
+                "description": "Returns revenue and expense accounts for a date range, grouped by system accounts and customer accounts. Calculates net income.",
+                "operationId": "getIncomeStatement",
+                "parameters": [
+                    {
+                        "name": "from_date",
+                        "in": "query",
+                        "description": "Start date for the report period",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "to_date",
+                        "in": "query",
+                        "description": "End date for the report period",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "layer",
+                        "in": "query",
+                        "description": "Transaction layer to report on",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "settled",
+                            "enum": [
+                                "settled",
+                                "pending",
+                                "encumbrance"
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Income statement report",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "period": {
+                                            "properties": {
+                                                "from_date": {
+                                                    "type": "string",
+                                                    "format": "date"
+                                                },
+                                                "to_date": {
+                                                    "type": "string",
+                                                    "format": "date"
+                                                }
+                                            },
+                                            "type": "object"
+                                        },
+                                        "layer": {
+                                            "type": "string"
+                                        },
+                                        "revenue": {
+                                            "type": "object"
+                                        },
+                                        "expenses": {
+                                            "type": "object"
+                                        },
+                                        "net_income": {
+                                            "type": "string",
+                                            "example": "5000.00"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/trancodes": {
+            "get": {
+                "tags": [
+                    "Transaction Codes"
+                ],
+                "summary": "List transaction code templates",
+                "description": "Display a listing of tranCodes for the specified ledger.",
+                "operationId": "getTransactionCodes",
+                "parameters": [
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "description": "Filter by status",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "active",
+                                "deprecated"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "search",
+                        "in": "query",
+                        "description": "Search in code, name, or description",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "description": "Number of items per page (max 100)",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 25,
+                            "maximum": 100
+                        }
+                    },
+                    {
+                        "name": "cursor",
+                        "in": "query",
+                        "description": "Cursor for pagination",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/TransactionCode"
+                                            }
+                                        },
+                                        "meta": {
+                                            "$ref": "#/components/schemas/PaginationMeta"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Transaction Codes"
+                ],
+                "summary": "Create a transaction code template",
+                "description": "Store a newly created tranCode.",
+                "operationId": "createTransactionCode",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "code",
+                                    "name",
+                                    "entries_template"
+                                ],
+                                "properties": {
+                                    "code": {
+                                        "description": "Unique code for this template",
+                                        "type": "string",
+                                        "example": "PAYMENT"
+                                    },
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Customer Payment"
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "status": {
+                                        "type": "string",
+                                        "default": "active",
+                                        "enum": [
+                                            "active",
+                                            "deprecated"
+                                        ]
+                                    },
+                                    "params_schema": {
+                                        "description": "JSON Schema for parameters",
+                                        "type": "object"
+                                    },
+                                    "entries_template": {
+                                        "description": "Template for generating transaction entries",
+                                        "type": "object"
+                                    },
+                                    "validation_rules": {
+                                        "type": "object",
+                                        "nullable": true
+                                    },
+                                    "metadata": {
+                                        "type": "object",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Transaction code created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/TransactionCode"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Validation error"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/trancodes/{id}": {
+            "get": {
+                "tags": [
+                    "Transaction Codes"
+                ],
+                "summary": "Get a specific transaction code template",
+                "description": "Display the specified tranCode.",
+                "operationId": "getTransactionCode",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Transaction Code UUID",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/TransactionCode"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "description": "Transaction code not found"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "Transaction Codes"
+                ],
+                "summary": "Update a transaction code template (increments version)",
+                "description": "Update the specified tranCode.\nNote: Updates increment the version number for audit trail.",
+                "operationId": "updateTransactionCode",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Transaction Code UUID",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "name": {
+                                        "type": "string"
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "params_schema": {
+                                        "type": "object"
+                                    },
+                                    "entries_template": {
+                                        "type": "object"
+                                    },
+                                    "validation_rules": {
+                                        "type": "object",
+                                        "nullable": true
+                                    },
+                                    "metadata": {
+                                        "type": "object",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Transaction code updated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/TransactionCode"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Validation error"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "description": "Transaction code not found"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/transactions": {
+            "get": {
+                "tags": [
+                    "Transactions"
+                ],
+                "summary": "List all transactions in a ledger",
+                "description": "Display a listing of the resource.\n\nUses cursor-based pagination for consistency. See docs/api/PAGINATION.md",
+                "operationId": "getTransactions",
+                "parameters": [
+                    {
+                        "name": "layer",
+                        "in": "query",
+                        "description": "Filter by transaction layer",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "settled",
+                                "pending",
+                                "encumbrance"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "description": "Filter by transaction status",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "pending",
+                                "posted",
+                                "void",
+                                "failed",
+                                "reversed"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "from_date",
+                        "in": "query",
+                        "description": "Filter transactions from this date",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "to_date",
+                        "in": "query",
+                        "description": "Filter transactions to this date",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "correlation_id",
+                        "in": "query",
+                        "description": "Filter by correlation ID",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "description": "Number of items per page (max 100)",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 25,
+                            "maximum": 100
+                        }
+                    },
+                    {
+                        "name": "cursor",
+                        "in": "query",
+                        "description": "Cursor for pagination",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/Transaction"
+                                            }
+                                        },
+                                        "meta": {
+                                            "$ref": "#/components/schemas/PaginationMeta"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Transactions"
+                ],
+                "summary": "Create a new transaction (double-entry)",
+                "description": "Store a newly created resource in storage.\n\nOptimized for speed: Direct database insertion with async verification.\nReturns 202 Accepted immediately, with verification happening asynchronously.",
+                "operationId": "createTransaction",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "effective_date",
+                                    "description",
+                                    "entries",
+                                    "idempotency_key"
+                                ],
+                                "properties": {
+                                    "effective_date": {
+                                        "description": "Transaction effective date",
+                                        "type": "string",
+                                        "format": "date",
+                                        "example": "2025-01-15"
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "example": "Payment received from customer"
+                                    },
+                                    "reference": {
+                                        "description": "External reference number",
+                                        "type": "string",
+                                        "example": "INV-001"
+                                    },
+                                    "layer": {
+                                        "type": "string",
+                                        "default": "settled",
+                                        "enum": [
+                                            "settled",
+                                            "pending",
+                                            "encumbrance"
+                                        ]
+                                    },
+                                    "journal_id": {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "nullable": true
+                                    },
+                                    "correlation_id": {
+                                        "description": "Group related transactions",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "idempotency_key": {
+                                        "description": "Unique key to prevent duplicate transactions",
+                                        "type": "string",
+                                        "example": "unique-key-123"
+                                    },
+                                    "metadata": {
+                                        "type": "object",
+                                        "nullable": true
+                                    },
+                                    "entries": {
+                                        "description": "Double-entry transaction entries (must balance)",
+                                        "type": "array",
+                                        "items": {
+                                            "required": [
+                                                "type",
+                                                "amount"
+                                            ],
+                                            "properties": {
+                                                "account_code": {
+                                                    "description": "Account code (alternative to account_id)",
+                                                    "type": "string",
+                                                    "example": "1000"
+                                                },
+                                                "account_id": {
+                                                    "description": "Account UUID (alternative to account_code)",
+                                                    "type": "string",
+                                                    "format": "uuid"
+                                                },
+                                                "type": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                        "debit",
+                                                        "credit"
+                                                    ],
+                                                    "example": "debit"
+                                                },
+                                                "amount": {
+                                                    "description": "Amount in major units (e.g., dollars)",
+                                                    "type": "string",
+                                                    "example": "100.00"
+                                                },
+                                                "description": {
+                                                    "type": "string",
+                                                    "nullable": true
+                                                },
+                                                "metadata": {
+                                                    "type": "object",
+                                                    "nullable": true
+                                                }
+                                            },
+                                            "type": "object"
+                                        },
+                                        "example": [
+                                            {
+                                                "account_code": "1000",
+                                                "type": "debit",
+                                                "amount": "100.00"
+                                            },
+                                            {
+                                                "account_code": "4000",
+                                                "type": "credit",
+                                                "amount": "100.00"
+                                            }
+                                        ]
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "202": {
+                        "description": "Transaction accepted and processing",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "id": {
+                                            "type": "string",
+                                            "format": "uuid"
+                                        },
+                                        "status": {
+                                            "type": "string",
+                                            "example": "pending"
+                                        },
+                                        "idempotency_key": {
+                                            "type": "string"
+                                        },
+                                        "correlation_id": {
+                                            "type": "string"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Validation error"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "409": {
+                        "description": "Idempotency key conflict"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/transactions/{transactionId}": {
+            "get": {
+                "tags": [
+                    "Transactions"
+                ],
+                "summary": "Get a specific transaction",
+                "description": "Display the specified resource.",
+                "operationId": "getTransaction",
+                "parameters": [
+                    {
+                        "name": "transactionId",
+                        "in": "path",
+                        "description": "Transaction UUID",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Transaction"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "description": "Transaction not found"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/transactions/{transactionId}/reverse": {
+            "post": {
+                "tags": [
+                    "Transactions"
+                ],
+                "summary": "Reverse a posted transaction",
+                "description": "Reverse a transaction",
+                "operationId": "reverseTransaction",
+                "parameters": [
+                    {
+                        "name": "transactionId",
+                        "in": "path",
+                        "description": "Transaction UUID to reverse",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "reason",
+                                    "date"
+                                ],
+                                "properties": {
+                                    "reason": {
+                                        "description": "Reason for reversal",
+                                        "type": "string",
+                                        "example": "Customer refund"
+                                    },
+                                    "date": {
+                                        "description": "Effective date of reversal",
+                                        "type": "string",
+                                        "format": "date",
+                                        "example": "2025-01-15"
+                                    },
+                                    "reference": {
+                                        "type": "string",
+                                        "example": "REF-001",
+                                        "nullable": true
+                                    },
+                                    "metadata": {
+                                        "type": "object",
+                                        "nullable": true
+                                    },
+                                    "idempotency_key": {
+                                        "type": "string",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Reversal transaction created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Transaction"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Validation error"
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "description": "Transaction not found"
+                    },
+                    "422": {
+                        "description": "Transaction cannot be reversed"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "Account": {
+                "title": "Account",
+                "description": "A chart of accounts entry for tracking financial transactions",
+                "required": [
+                    "id",
+                    "code",
+                    "name",
+                    "type",
+                    "normal_balance"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "ledger_id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "parent_id": {
+                        "description": "Parent account for hierarchical structure",
+                        "type": "string",
+                        "format": "uuid",
+                        "nullable": true
+                    },
+                    "code": {
+                        "description": "Account code (unique within ledger)",
+                        "type": "string",
+                        "example": "1000"
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Cash"
+                    },
+                    "type": {
+                        "type": "string",
+                        "enum": [
+                            "asset",
+                            "liability",
+                            "equity",
+                            "revenue",
+                            "expense"
+                        ],
+                        "example": "asset"
+                    },
+                    "category": {
+                        "description": "Account category/subcategory",
+                        "type": "string",
+                        "example": "cash"
+                    },
+                    "normal_balance": {
+                        "description": "Normal balance side",
+                        "type": "string",
+                        "enum": [
+                            "debit",
+                            "credit"
+                        ],
+                        "example": "debit"
+                    },
+                    "balance": {
+                        "description": "Current balance in major units",
+                        "type": "string",
+                        "example": "1000.00"
+                    },
+                    "description": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "is_active": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "is_system": {
+                        "description": "System accounts cannot be deleted",
+                        "type": "boolean",
+                        "example": false
+                    },
+                    "metadata": {
+                        "type": "object",
+                        "nullable": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "type": "object"
+            },
+            "AccountSet": {
+                "title": "Account Set",
+                "description": "A logical grouping of accounts for reporting purposes",
+                "required": [
+                    "id",
+                    "code",
+                    "name"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "ledger_id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "code": {
+                        "description": "Unique code within ledger",
+                        "type": "string",
+                        "example": "OPERATING_EXPENSES"
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Operating Expenses"
+                    },
+                    "description": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "metadata": {
+                        "type": "object",
+                        "nullable": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "type": "object"
+            },
+            "Entry": {
+                "title": "Entry",
+                "description": "A single entry in a double-entry transaction",
+                "required": [
+                    "id",
+                    "transaction_id",
+                    "account_id",
+                    "type",
+                    "amount"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "account_id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "account_code": {
+                        "type": "string",
+                        "example": "1000"
+                    },
+                    "account_name": {
+                        "type": "string",
+                        "example": "Cash",
+                        "nullable": true
+                    },
+                    "amount": {
+                        "description": "Amount in major units",
+                        "type": "string",
+                        "example": "100.00"
+                    },
+                    "type": {
+                        "type": "string",
+                        "enum": [
+                            "debit",
+                            "credit"
+                        ],
+                        "example": "debit"
+                    },
+                    "description": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "layer": {
+                        "type": "string",
+                        "enum": [
+                            "SETTLED",
+                            "PENDING",
+                            "ENCUMBRANCE"
+                        ],
+                        "example": "SETTLED"
+                    }
+                },
+                "type": "object"
+            },
+            "Journal": {
+                "title": "Journal",
+                "description": "A journal for organizing related transactions",
+                "required": [
+                    "id",
+                    "code",
+                    "name",
+                    "status"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "ledger_id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "code": {
+                        "description": "Unique code within ledger",
+                        "type": "string",
+                        "example": "SALES"
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Sales Journal"
+                    },
+                    "description": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "active",
+                            "closed"
+                        ],
+                        "example": "active"
+                    },
+                    "metadata": {
+                        "type": "object",
+                        "nullable": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "type": "object"
+            },
+            "Ledger": {
+                "title": "Ledger",
+                "description": "A financial ledger containing chart of accounts and transactions",
+                "required": [
+                    "id",
+                    "code",
+                    "name",
+                    "currency",
+                    "status"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "example": "0191234-5678-90ab-cdef-1234567890ab"
+                    },
+                    "code": {
+                        "description": "Unique ledger code",
+                        "type": "string",
+                        "example": "main-ledger"
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Main Ledger"
+                    },
+                    "description": {
+                        "type": "string",
+                        "example": "Primary accounting ledger",
+                        "nullable": true
+                    },
+                    "currency": {
+                        "description": "ISO currency code",
+                        "type": "string",
+                        "example": "USD"
+                    },
+                    "storage_decimals": {
+                        "description": "Storage precision (decimals)",
+                        "type": "integer",
+                        "example": 2
+                    },
+                    "display_decimals": {
+                        "description": "Display precision",
+                        "type": "integer",
+                        "example": 2
+                    },
+                    "rounding_mode": {
+                        "type": "string",
+                        "enum": [
+                            "half_up",
+                            "half_down",
+                            "half_even",
+                            "half_ceiling",
+                            "half_floor"
+                        ],
+                        "example": "half_up"
+                    },
+                    "timezone": {
+                        "type": "string",
+                        "example": "America/New_York"
+                    },
+                    "fiscal_year_start": {
+                        "description": "Fiscal year start month (1-12)",
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "is_active": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "active",
+                            "inactive"
+                        ],
+                        "example": "active"
+                    },
+                    "settings": {
+                        "type": "object",
+                        "nullable": true
+                    },
+                    "metadata": {
+                        "type": "object",
+                        "nullable": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2025-10-16T12:00:00Z"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2025-10-16T12:00:00Z"
+                    }
+                },
+                "type": "object"
+            },
+            "PaginationMeta": {
+                "title": "Pagination Metadata",
+                "description": "Cursor-based pagination metadata",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "example": "http://127.0.0.1:15080/api/v1/ledgers"
+                    },
+                    "per_page": {
+                        "type": "integer",
+                        "example": 25
+                    },
+                    "next_cursor": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "prev_cursor": {
+                        "type": "string",
+                        "nullable": true
+                    }
+                },
+                "type": "object"
+            },
+            "Transaction": {
+                "title": "Transaction",
+                "description": "A double-entry accounting transaction",
+                "required": [
+                    "id",
+                    "ledger_id",
+                    "description",
+                    "effective_date",
+                    "status"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "ledger_id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "journal_id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "nullable": true
+                    },
+                    "reference": {
+                        "type": "string",
+                        "example": "INV-001",
+                        "nullable": true
+                    },
+                    "description": {
+                        "type": "string",
+                        "example": "Payment received"
+                    },
+                    "effective_date": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "date": {
+                        "description": "Alias for effective_date",
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "layer": {
+                        "type": "string",
+                        "enum": [
+                            "SETTLED",
+                            "PENDING",
+                            "ENCUMBRANCE"
+                        ],
+                        "example": "SETTLED"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "pending",
+                            "posted",
+                            "void",
+                            "failed",
+                            "reversed"
+                        ],
+                        "example": "posted"
+                    },
+                    "total_amount": {
+                        "description": "Total transaction amount in major units",
+                        "type": "string",
+                        "example": "100.00"
+                    },
+                    "entry_count": {
+                        "type": "integer",
+                        "example": 2
+                    },
+                    "hash": {
+                        "description": "Transaction hash for integrity",
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "previous_hash": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "correlation_id": {
+                        "description": "Group related transactions",
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "metadata": {
+                        "type": "object",
+                        "nullable": true
+                    },
+                    "original_transaction_id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "nullable": true
+                    },
+                    "reversal_reason": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "entries": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Entry"
+                        }
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "type": "object"
+            },
+            "TransactionCode": {
+                "title": "Transaction Code",
+                "description": "A reusable template for creating transactions with parameters",
+                "required": [
+                    "id",
+                    "code",
+                    "name",
+                    "entries_template"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "ledger_id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "code": {
+                        "description": "Unique code for this template",
+                        "type": "string",
+                        "example": "PAYMENT"
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Customer Payment"
+                    },
+                    "description": {
+                        "description": "Human-readable description",
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "active",
+                            "deprecated"
+                        ],
+                        "example": "active"
+                    },
+                    "version": {
+                        "description": "Version number (increments on update)",
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "params_schema": {
+                        "description": "JSON Schema defining required parameters",
+                        "type": "object",
+                        "example": {
+                            "required": [
+                                "amount"
+                            ],
+                            "properties": {
+                                "amount": {
+                                    "type": "string",
+                                    "description": "Payment amount"
+                                }
+                            }
+                        },
+                        "nullable": true
+                    },
+                    "entries_template": {
+                        "description": "Template for generating transaction entries",
+                        "type": "object",
+                        "example": {
+                            "entries": [
+                                {
+                                    "account_code": "1000",
+                                    "type": "debit",
+                                    "amount": "{params.amount}"
+                                },
+                                {
+                                    "account_code": "4000",
+                                    "type": "credit",
+                                    "amount": "{params.amount}"
+                                }
+                            ]
+                        }
+                    },
+                    "validation_rules": {
+                        "type": "object",
+                        "nullable": true
+                    },
+                    "metadata": {
+                        "type": "object",
+                        "nullable": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "type": "object"
+            }
+        },
+        "securitySchemes": {
+            "sanctum": {
+                "type": "http",
+                "description": "Laravel Sanctum Bearer Token",
+                "bearerFormat": "Sanctum",
+                "scheme": "bearer"
+            }
+        }
+    },
+    "tags": [
+        {
+            "name": "Account Sets",
+            "description": "Logical groupings of accounts for reporting"
+        },
+        {
+            "name": "Journals",
+            "description": "Transaction journals for organizing transactions"
+        },
+        {
+            "name": "Reports",
+            "description": "Financial reports and statements"
+        },
+        {
+            "name": "Accounts",
+            "description": "Accounts"
+        },
+        {
+            "name": "Transaction Codes",
+            "description": "Transaction Codes"
+        },
+        {
+            "name": "Transactions",
+            "description": "Transactions"
+        }
+    ]
+}

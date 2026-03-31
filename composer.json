@@ -1,0 +1,42 @@
+{
+    "name": "ledga/ledga-php",
+    "description": "PHP SDK for Ledga.io - Programmatic double-entry ledgers for finance, gaming and multi-tenant SaaS",
+    "type": "library",
+    "license": "MIT",
+    "keywords": ["ledga", "ledger", "accounting", "double-entry", "finance", "api", "sdk"],
+    "homepage": "https://ledga.io",
+    "support": {
+        "email": "support@ledga.io",
+        "docs": "https://ledga.io/docs"
+    },
+    "require": {
+        "php": "^8.1",
+        "guzzlehttp/guzzle": "^7.5"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^10.5",
+        "phpstan/phpstan": "^1.10",
+        "squizlabs/php_codesniffer": "^3.8"
+    },
+    "autoload": {
+        "psr-4": {
+            "Ledga\\Api\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Ledga\\Api\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "phpunit",
+        "analyse": "phpstan analyse",
+        "cs-check": "phpcs",
+        "cs-fix": "phpcbf",
+        "quality": ["@analyse", "@cs-check", "@test"]
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "minimum-stability": "stable"
+}

@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<ruleset name="Ledga PHP SDK">
+    <description>Coding standard for Ledga PHP SDK</description>
+
+    <arg name="colors"/>
+    <arg value="sp"/>
+
+    <file>src</file>
+    <file>tests</file>
+
+    <rule ref="PSR12"/>
+
+    <!-- Allow long lines in tests for readability -->
+    <rule ref="Generic.Files.LineLength">
+        <exclude-pattern>tests/*</exclude-pattern>
+    </rule>
+
+    <!-- Allow snake_case test method names (common convention) -->
+    <rule ref="PSR1.Methods.CamelCapsMethodName">
+        <exclude-pattern>tests/*</exclude-pattern>
+    </rule>
+</ruleset>
