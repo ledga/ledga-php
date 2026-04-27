@@ -152,7 +152,8 @@
                                 "required": [
                                     "code",
                                     "name",
-                                    "type"
+                                    "type",
+                                    "category"
                                 ],
                                 "properties": {
                                     "code": {
@@ -192,9 +193,13 @@
                                         "nullable": true
                                     },
                                     "category": {
-                                        "description": "Account category",
+                                        "description": "Account category — system (internal/GL) or customer (end-user balance)",
                                         "type": "string",
-                                        "example": "cash"
+                                        "enum": [
+                                            "system",
+                                            "customer"
+                                        ],
+                                        "example": "system"
                                     },
                                     "description": {
                                         "type": "string",
@@ -837,25 +842,7 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "properties": {
-                                        "settled": {
-                                            "type": "string",
-                                            "example": "1000.00"
-                                        },
-                                        "pending": {
-                                            "type": "string",
-                                            "example": "50.00"
-                                        },
-                                        "encumbered": {
-                                            "type": "string",
-                                            "example": "100.00"
-                                        },
-                                        "available": {
-                                            "type": "string",
-                                            "example": "950.00"
-                                        }
-                                    },
-                                    "type": "object"
+                                    "$ref": "#/components/schemas/AccountBalanceResponse"
                                 }
                             }
                         }
@@ -883,7 +870,7 @@
                     "Accounts"
                 ],
                 "summary": "Get account balance with layer details",
-                "description": "Get account balance with layer details",
+                "description": "Get account balance with layer details\n\nReturns balances for each accounting layer (settled, pending) plus\nencumbrance breakdown (overdue, future). Per issue #86, the \"available\"\nbalance concept was removed - only settled funds are spendable.",
                 "operationId": "getAccountBalance",
                 "parameters": [
                     {
@@ -899,7 +886,7 @@
                     {
                         "name": "as_of_date",
                         "in": "query",
-                        "description": "Calculate balance as of this date",
+                        "description": "Calculate balance as of this date (Y-m-d format)",
                         "required": false,
                         "schema": {
                             "type": "string",
@@ -909,7 +896,7 @@
                     {
                         "name": "layer",
                         "in": "query",
-                        "description": "Filter by specific layer",
+                        "description": "Filter by specific layer (informational only, all layers are always returned)",
                         "required": false,
                         "schema": {
                             "type": "string",
@@ -927,25 +914,7 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "properties": {
-                                        "settled": {
-                                            "type": "string",
-                                            "example": "1000.00"
-                                        },
-                                        "pending": {
-                                            "type": "string",
-                                            "example": "50.00"
-                                        },
-                                        "encumbered": {
-                                            "type": "string",
-                                            "example": "100.00"
-                                        },
-                                        "available": {
-                                            "type": "string",
-                                            "example": "950.00"
-                                        }
-                                    },
-                                    "type": "object"
+                                    "$ref": "#/components/schemas/AccountBalanceResponse"
                                 }
                             }
                         }
@@ -3126,6 +3095,7 @@
                     "code",
                     "name",
                     "type",
+                    "category",
                     "normal_balance"
                 ],
                 "properties": {
@@ -3164,9 +3134,13 @@
                         "example": "asset"
                     },
                     "category": {
-                        "description": "Account category/subcategory",
+                        "description": "Account category — system (internal/GL accounts) or customer (end-user balance accounts)",
                         "type": "string",
-                        "example": "cash"
+                        "enum": [
+                            "system",
+                            "customer"
+                        ],
+                        "example": "system"
                     },
                     "normal_balance": {
                         "description": "Normal balance side",
@@ -3426,10 +3400,15 @@
                         "type": "string",
                         "example": "America/New_York"
                     },
-                    "fiscal_year_start": {
+                    "fiscal_year_start_month": {
                         "description": "Fiscal year start month (1-12)",
                         "type": "integer",
-                        "example": 1
+                        "example": 4
+                    },
+                    "fiscal_year_start_day": {
+                        "description": "Fiscal year start day (1-31)",
+                        "type": "integer",
+                        "example": 6
                     },
                     "is_active": {
                         "type": "boolean",
@@ -3696,6 +3675,119 @@
                     "updated_at": {
                         "type": "string",
                         "format": "date-time"
+                    }
+                },
+                "type": "object"
+            },
+            "AccountBalanceResponse": {
+                "title": "Account Balance Response",
+                "description": "Layered balance snapshot for a single account. Per issue #86, \"available\" was removed — only settled funds are spendable. Encumbrances are split into overdue (past due date) and future (due today or later).",
+                "required": [
+                    "success",
+                    "data"
+                ],
+                "properties": {
+                    "success": {
+                        "description": "Structured response for account balance endpoint",
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "data": {
+                        "required": [
+                            "account_id",
+                            "account_code",
+                            "account_name",
+                            "account_type",
+                            "normal_balance",
+                            "balances",
+                            "layer_details",
+                            "currency",
+                            "as_of_date",
+                            "calculated_at"
+                        ],
+                        "properties": {
+                            "account_id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "example": "01234567-89ab-cdef-0123-456789abcdef"
+                            },
+                            "account_code": {
+                                "type": "string",
+                                "example": "1000"
+                            },
+                            "account_name": {
+                                "type": "string",
+                                "example": "Cash"
+                            },
+                            "account_type": {
+                                "type": "string",
+                                "enum": [
+                                    "asset",
+                                    "liability",
+                                    "equity",
+                                    "revenue",
+                                    "expense"
+                                ],
+                                "example": "asset"
+                            },
+                            "normal_balance": {
+                                "type": "string",
+                                "enum": [
+                                    "debit",
+                                    "credit"
+                                ],
+                                "example": "debit"
+                            },
+                            "balances": {
+                                "required": [
+                                    "settled",
+                                    "pending",
+                                    "overdue",
+                                    "future"
+                                ],
+                                "properties": {
+                                    "settled": {
+                                        "description": "Confirmed cleared funds — what you can spend",
+                                        "type": "string",
+                                        "example": "1000.00"
+                                    },
+                                    "pending": {
+                                        "description": "Unconfirmed transactions (not yet spendable)",
+                                        "type": "string",
+                                        "example": "50.00"
+                                    },
+                                    "overdue": {
+                                        "description": "Encumbrances past their due date",
+                                        "type": "string",
+                                        "example": "20.00"
+                                    },
+                                    "future": {
+                                        "description": "Encumbrances due today or later",
+                                        "type": "string",
+                                        "example": "80.00"
+                                    }
+                                },
+                                "type": "object"
+                            },
+                            "layer_details": {
+                                "description": "Detailed breakdown per accounting layer",
+                                "type": "object"
+                            },
+                            "currency": {
+                                "type": "string",
+                                "example": "GBP"
+                            },
+                            "as_of_date": {
+                                "type": "string",
+                                "format": "date",
+                                "example": "2025-01-15"
+                            },
+                            "calculated_at": {
+                                "type": "string",
+                                "format": "date-time"
+                            }
+                        },
+                        "type": "object"
                     }
                 },
                 "type": "object"

@@ -88,6 +88,7 @@ final class CursorPaginatorTest extends TestCase
             'name' => 'Test',
             'type' => 'asset',
             'normal_balance' => 'debit',
+            'category' => 'system',
             'balance' => '0.00',
             'is_active' => true,
             'is_system' => false,

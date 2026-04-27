@@ -96,6 +96,7 @@ $account = $ledga->accounts->create([
     'code' => '1000',
     'name' => 'Cash',
     'type' => 'asset',
+    'category' => 'system', // 'system' (internal/GL) or 'customer' (end-user balance)
 ]);
 
 // Update an account
@@ -108,9 +109,10 @@ $ledga->accounts->delete('account-uuid');
 
 // Get account balance
 $balance = $ledga->accounts->getBalance('account-uuid');
-echo "Available: " . $balance->available;
-echo "Settled: " . $balance->settled;
-echo "Pending: " . $balance->pending;
+echo "Settled: " . $balance->settled;   // confirmed cleared funds
+echo "Pending: " . $balance->pending;   // not yet spendable
+echo "Overdue: " . $balance->overdue;   // encumbrances past their due date
+echo "Future: " . $balance->future;     // encumbrances due today or later
 
 // Get account by code (instead of UUID)
 $account = $ledga->accounts->getByCode('1000');
