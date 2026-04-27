@@ -36,7 +36,7 @@ final readonly class AccountBalance implements ResourceInterface
     public static function fromArray(array $data): static
     {
         /** @var array<string, mixed> $payload */
-        $payload = $data['data'] ?? $data;
+        $payload = $data['data'];
 
         /** @var array<string, mixed> $balances */
         $balances = $payload['balances'];
@@ -45,19 +45,19 @@ final readonly class AccountBalance implements ResourceInterface
         $layerDetails = $payload['layer_details'];
 
         return new self(
-            accountId: (string) $payload['account_id'],
-            accountCode: (string) $payload['account_code'],
-            accountName: (string) $payload['account_name'],
-            accountType: AccountType::from((string) $payload['account_type']),
-            normalBalance: NormalBalance::from((string) $payload['normal_balance']),
-            settled: (string) $balances['settled'],
-            pending: (string) $balances['pending'],
-            overdue: (string) $balances['overdue'],
-            future: (string) $balances['future'],
+            accountId: $payload['account_id'],
+            accountCode: $payload['account_code'],
+            accountName: $payload['account_name'],
+            accountType: AccountType::from($payload['account_type']),
+            normalBalance: NormalBalance::from($payload['normal_balance']),
+            settled: $balances['settled'],
+            pending: $balances['pending'],
+            overdue: $balances['overdue'],
+            future: $balances['future'],
             layerDetails: $layerDetails,
-            currency: (string) $payload['currency'],
-            asOfDate: new DateTimeImmutable((string) $payload['as_of_date']),
-            calculatedAt: new DateTimeImmutable((string) $payload['calculated_at']),
+            currency: $payload['currency'],
+            asOfDate: new DateTimeImmutable($payload['as_of_date']),
+            calculatedAt: new DateTimeImmutable($payload['calculated_at']),
         );
     }
 }
