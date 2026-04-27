@@ -1,3 +1,6 @@
+> [!WARNING]
+> The Ledga PHP SDK is pre-1.0.0. APIs may change without notice while we iterate towards a stable release. Avoid relying on long-term compatibility at this stage.
+
 # Ledga PHP SDK
 
 The official PHP SDK for the [Ledga.io](https://ledga.io) API. Ledga provides programmatic double-entry ledgers for finance, gaming, and multi-tenant SaaS applications.
