@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Ledga\Api\Tests\Unit\Resources;
 
+use Ledga\Api\Enums\AccountCategory;
 use Ledga\Api\Enums\AccountType;
 use Ledga\Api\Enums\NormalBalance;
 use Ledga\Api\Resources\Account;
@@ -23,7 +24,7 @@ final class AccountTest extends TestCase
             'type' => 'asset',
             'normal_balance' => 'debit',
             'parent_id' => null,
-            'category' => 'cash',
+            'category' => 'system',
             'description' => 'Cash account',
             'balance' => '1000.00',
             'is_active' => true,
@@ -42,7 +43,7 @@ final class AccountTest extends TestCase
         $this->assertSame(AccountType::Asset, $account->type);
         $this->assertSame(NormalBalance::Debit, $account->normalBalance);
         $this->assertNull($account->parentId);
-        $this->assertSame('cash', $account->category);
+        $this->assertSame(AccountCategory::System, $account->category);
         $this->assertSame('Cash account', $account->description);
         $this->assertSame('1000.00', $account->balance);
         $this->assertTrue($account->isActive);
@@ -60,6 +61,7 @@ final class AccountTest extends TestCase
             'name' => 'Cash',
             'type' => 'asset',
             'normal_balance' => 'debit',
+            'category' => 'customer',
             'created_at' => '2025-01-01T12:00:00Z',
             'updated_at' => '2025-01-01T12:00:00Z',
         ];
@@ -67,7 +69,7 @@ final class AccountTest extends TestCase
         $account = Account::fromArray($data);
 
         $this->assertNull($account->parentId);
-        $this->assertNull($account->category);
+        $this->assertSame(AccountCategory::Customer, $account->category);
         $this->assertNull($account->description);
         $this->assertSame('0.00', $account->balance);
         $this->assertTrue($account->isActive);

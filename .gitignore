@@ -10,3 +10,5 @@
 CLAUDE.md
 /docs/
 /benchmark/
+/openapi.json
+/api-docs.json

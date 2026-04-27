@@ -63,7 +63,7 @@ final class AccountServiceTest extends TestCase
     {
         $http = $this->createMock(HttpClientInterface::class);
         $http->method('post')
-            ->with('accounts', ['code' => '2000', 'name' => 'Inventory', 'type' => 'asset'])
+            ->with('accounts', ['code' => '2000', 'name' => 'Inventory', 'type' => 'asset', 'category' => 'system'])
             ->willReturn(new Response(201, $this->accountData('456', '2000', 'Inventory')));
 
         $service = new AccountService($http);
@@ -71,6 +71,7 @@ final class AccountServiceTest extends TestCase
             'code' => '2000',
             'name' => 'Inventory',
             'type' => 'asset',
+            'category' => 'system',
         ]);
 
         $this->assertSame('456', $account->id);
@@ -111,10 +112,24 @@ final class AccountServiceTest extends TestCase
         $http->method('get')
             ->with('accounts/123/balance', [])
             ->willReturn(new Response(200, [
-                'settled' => '1000.00',
-                'pending' => '50.00',
-                'encumbered' => '100.00',
-                'available' => '850.00',
+                'success' => true,
+                'data' => [
+                    'account_id' => '123',
+                    'account_code' => '1000',
+                    'account_name' => 'Cash',
+                    'account_type' => 'asset',
+                    'normal_balance' => 'debit',
+                    'balances' => [
+                        'settled' => '1000.00',
+                        'pending' => '50.00',
+                        'overdue' => '20.00',
+                        'future' => '80.00',
+                    ],
+                    'layer_details' => [],
+                    'currency' => 'GBP',
+                    'as_of_date' => '2025-01-15',
+                    'calculated_at' => '2025-01-15T12:00:00Z',
+                ],
             ]));
 
         $service = new AccountService($http);
@@ -122,7 +137,11 @@ final class AccountServiceTest extends TestCase
 
         $this->assertInstanceOf(AccountBalance::class, $balance);
         $this->assertSame('1000.00', $balance->settled);
-        $this->assertSame('850.00', $balance->available);
+        $this->assertSame('50.00', $balance->pending);
+        $this->assertSame('20.00', $balance->overdue);
+        $this->assertSame('80.00', $balance->future);
+        $this->assertSame('123', $balance->accountId);
+        $this->assertSame('GBP', $balance->currency);
     }
 
     #[Test]
@@ -148,10 +167,24 @@ final class AccountServiceTest extends TestCase
         $http->method('get')
             ->with('accounts/code/1000/balance', [])
             ->willReturn(new Response(200, [
-                'settled' => '1000.00',
-                'pending' => '50.00',
-                'encumbered' => '100.00',
-                'available' => '850.00',
+                'success' => true,
+                'data' => [
+                    'account_id' => '123',
+                    'account_code' => '1000',
+                    'account_name' => 'Cash',
+                    'account_type' => 'asset',
+                    'normal_balance' => 'debit',
+                    'balances' => [
+                        'settled' => '1000.00',
+                        'pending' => '50.00',
+                        'overdue' => '20.00',
+                        'future' => '80.00',
+                    ],
+                    'layer_details' => [],
+                    'currency' => 'GBP',
+                    'as_of_date' => '2025-01-15',
+                    'calculated_at' => '2025-01-15T12:00:00Z',
+                ],
             ]));
 
         $service = new AccountService($http);
@@ -159,7 +192,10 @@ final class AccountServiceTest extends TestCase
 
         $this->assertInstanceOf(AccountBalance::class, $balance);
         $this->assertSame('1000.00', $balance->settled);
-        $this->assertSame('850.00', $balance->available);
+        $this->assertSame('50.00', $balance->pending);
+        $this->assertSame('20.00', $balance->overdue);
+        $this->assertSame('80.00', $balance->future);
+        $this->assertSame('1000', $balance->accountCode);
     }
 
     #[Test]
@@ -255,6 +291,7 @@ final class AccountServiceTest extends TestCase
             'name' => $name,
             'type' => 'asset',
             'normal_balance' => 'debit',
+            'category' => 'system',
             'balance' => '0.00',
             'is_active' => true,
             'is_system' => false,
