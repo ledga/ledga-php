@@ -93,7 +93,7 @@ final class AccountService extends AbstractService
     {
         $response = $this->http->get($this->basePath() . '/' . $id . '/balance', $params);
 
-        return AccountBalance::fromArray($response->data);
+        return AccountBalance::fromArray($this->unwrap($response));
     }
 
     /**
@@ -125,7 +125,7 @@ final class AccountService extends AbstractService
     {
         $response = $this->http->get($this->basePath() . '/code/' . $code . '/balance', $params);
 
-        return AccountBalance::fromArray($response->data);
+        return AccountBalance::fromArray($this->unwrap($response));
     }
 
     /**
@@ -137,7 +137,7 @@ final class AccountService extends AbstractService
     {
         $response = $this->http->get($this->basePath() . '/' . $id . '/balance-history', $params);
 
-        return BalanceHistory::fromArray($response->data);
+        return BalanceHistory::fromArray($this->unwrap($response));
     }
 
     /**

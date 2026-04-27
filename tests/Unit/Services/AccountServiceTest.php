@@ -48,7 +48,7 @@ final class AccountServiceTest extends TestCase
         $http = $this->createMock(HttpClientInterface::class);
         $http->method('get')
             ->with('accounts/123')
-            ->willReturn(new Response(200, $this->accountData('123', '1000', 'Cash')));
+            ->willReturn(new Response(200, ['data' => $this->accountData('123', '1000', 'Cash')]));
 
         $service = new AccountService($http);
         $account = $service->get('123');
@@ -64,7 +64,7 @@ final class AccountServiceTest extends TestCase
         $http = $this->createMock(HttpClientInterface::class);
         $http->method('post')
             ->with('accounts', ['code' => '2000', 'name' => 'Inventory', 'type' => 'asset', 'category' => 'system'])
-            ->willReturn(new Response(201, $this->accountData('456', '2000', 'Inventory')));
+            ->willReturn(new Response(201, ['data' => $this->accountData('456', '2000', 'Inventory')]));
 
         $service = new AccountService($http);
         $account = $service->create([
@@ -84,12 +84,30 @@ final class AccountServiceTest extends TestCase
         $http = $this->createMock(HttpClientInterface::class);
         $http->method('put')
             ->with('accounts/123', ['name' => 'Updated Name'])
-            ->willReturn(new Response(200, $this->accountData('123', '1000', 'Updated Name')));
+            ->willReturn(new Response(200, ['data' => $this->accountData('123', '1000', 'Updated Name')]));
 
         $service = new AccountService($http);
         $account = $service->update('123', ['name' => 'Updated Name']);
 
         $this->assertSame('Updated Name', $account->name);
+    }
+
+    #[Test]
+    public function it_accepts_a_flat_create_response_for_back_compat(): void
+    {
+        $http = $this->createMock(HttpClientInterface::class);
+        $http->method('post')
+            ->willReturn(new Response(201, $this->accountData('789', '3000', 'Receivables')));
+
+        $service = new AccountService($http);
+        $account = $service->create([
+            'code' => '3000',
+            'name' => 'Receivables',
+            'type' => 'asset',
+            'category' => 'system',
+        ]);
+
+        $this->assertSame('789', $account->id);
     }
 
     #[Test]
@@ -150,7 +168,7 @@ final class AccountServiceTest extends TestCase
         $http = $this->createMock(HttpClientInterface::class);
         $http->method('get')
             ->with('accounts/code/1000')
-            ->willReturn(new Response(200, $this->accountData('123', '1000', 'Cash')));
+            ->willReturn(new Response(200, ['data' => $this->accountData('123', '1000', 'Cash')]));
 
         $service = new AccountService($http);
         $account = $service->getByCode('1000');

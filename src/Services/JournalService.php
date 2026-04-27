@@ -88,6 +88,6 @@ final class JournalService extends AbstractService
     {
         $response = $this->http->post($this->basePath() . '/' . $id . '/close');
 
-        return Journal::fromArray($response->data);
+        return Journal::fromArray($this->unwrap($response));
     }
 }

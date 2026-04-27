@@ -73,7 +73,7 @@ final class TransactionService extends AbstractService
     {
         $response = $this->http->post($this->basePath() . '/' . $id . '/reverse', $data);
 
-        return Transaction::fromArray($response->data);
+        return Transaction::fromArray($this->unwrap($response));
     }
 
     /**
@@ -90,6 +90,6 @@ final class TransactionService extends AbstractService
             'transactions' => $transactions,
         ]);
 
-        return BatchResponse::fromArray($response->data);
+        return BatchResponse::fromArray($this->unwrap($response));
     }
 }
