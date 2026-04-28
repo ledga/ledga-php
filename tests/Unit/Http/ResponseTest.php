@@ -38,12 +38,14 @@ final class ResponseTest extends TestCase
     }
 
     #[Test]
-    public function unwrap_returns_full_body_when_data_key_missing(): void
+    public function unwrap_throws_when_data_key_is_missing(): void
     {
-        $body = ['id' => 'abc', 'name' => 'thing'];
-        $response = new Response(200, $body);
+        $response = new Response(200, ['id' => 'abc', 'name' => 'thing']);
 
-        $this->assertSame($body, $response->unwrap());
+        $this->expectException(LedgaException::class);
+        $this->expectExceptionMessage('expected uniform envelope with `data` key');
+
+        $response->unwrap();
     }
 
     #[Test]

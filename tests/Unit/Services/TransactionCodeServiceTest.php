@@ -46,6 +46,20 @@ final class TransactionCodeServiceTest extends TestCase
         $this->assertSame(TransactionCodeStatus::Deprecated, $code->status);
     }
 
+    #[Test]
+    public function validate_params_returns_true_when_server_says_valid(): void
+    {
+        $http = $this->createMock(HttpClientInterface::class);
+        $http->expects($this->once())
+            ->method('post')
+            ->with('trancodes/tc-1/validate-params', ['params' => ['amount' => '100.00']])
+            ->willReturn(new Response(200, ['data' => ['valid' => true, 'message' => 'Parameters are valid']]));
+
+        $service = new TransactionCodeService($http);
+
+        $this->assertTrue($service->validateParams('tc-1', ['amount' => '100.00']));
+    }
+
     /**
      * @return array<string, mixed>
      */

@@ -28,20 +28,6 @@ final class JournalServiceTest extends TestCase
         $this->assertSame('j-1', $journal->id);
     }
 
-    #[Test]
-    public function it_closes_journal_through_envelope(): void
-    {
-        $http = $this->createMock(HttpClientInterface::class);
-        $http->method('post')
-            ->with('journals/j-1/close')
-            ->willReturn(new Response(200, ['data' => $this->journalData('j-1', 'closed')]));
-
-        $service = new JournalService($http);
-        $journal = $service->close('j-1');
-
-        $this->assertSame('closed', $journal->status->value);
-    }
-
     /**
      * @return array<string, mixed>
      */

@@ -91,4 +91,22 @@ final class TransactionCodeService extends AbstractService
 
         return TransactionCode::fromArray($response->unwrap());
     }
+
+    /**
+     * Pre-flight a parameter payload against a trancode's `params_schema` without
+     * creating a transaction. Returns true when the payload is valid; on failure the
+     * server returns 422 and `LedgaValidationException` is thrown with the per-field
+     * errors in `errorBody`.
+     *
+     * @param array<string, mixed> $params Parameter payload to validate.
+     */
+    public function validateParams(string $id, array $params): bool
+    {
+        $response = $this->http->post(
+            $this->basePath() . '/' . $id . '/validate-params',
+            ['params' => $params],
+        );
+
+        return (bool) ($response->unwrap()['valid'] ?? false);
+    }
 }

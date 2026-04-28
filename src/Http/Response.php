@@ -41,8 +41,7 @@ final readonly class Response
      * Behaviour:
      *  - `data` is an associative array → return it (the common single-resource case).
      *  - `data` is a list (including `[]`) → return the full body unchanged so list / paginated callers keep `meta`.
-     *  - `data` key absent → return the full body unchanged (flat-shape back-compat for tests).
-     *  - `data` key present but not an array (null, scalar, etc.) → malformed response, throw.
+     *  - `data` key absent or non-array (null, scalar, etc.) → malformed response, throw `LedgaException`.
      *
      * @return array<string, mixed>
      * @throws LedgaException
@@ -50,7 +49,10 @@ final readonly class Response
     public function unwrap(): array
     {
         if (!array_key_exists('data', $this->data)) {
-            return $this->data;
+            throw new LedgaException(
+                'Malformed response: expected uniform envelope with `data` key, got keys: '
+                . implode(', ', array_keys($this->data) ?: ['(none)']),
+            );
         }
 
         $inner = $this->data['data'];

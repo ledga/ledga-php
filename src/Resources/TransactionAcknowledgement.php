@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Ledga\Api\Resources;
 
 use Ledga\Api\Enums\TransactionStatus;
+use Ledga\Api\Exceptions\LedgaException;
 
 /**
  * 202-style acknowledgement returned by `POST /transactions` (both direct entries and
@@ -25,9 +26,18 @@ final readonly class TransactionAcknowledgement implements ResourceInterface
 
     /**
      * @param array<string, mixed> $data
+     * @throws LedgaException
      */
     public static function fromArray(array $data): static
     {
+        foreach (['id', 'status', 'idempotency_key', 'correlation_id'] as $required) {
+            if (!isset($data[$required]) || !is_string($data[$required])) {
+                throw new LedgaException(
+                    "Malformed transaction acknowledgement: missing or non-string '{$required}'.",
+                );
+            }
+        }
+
         return new self(
             id: $data['id'],
             status: TransactionStatus::from($data['status']),

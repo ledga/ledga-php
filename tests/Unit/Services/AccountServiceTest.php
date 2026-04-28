@@ -98,23 +98,6 @@ final class AccountServiceTest extends TestCase
         $this->assertSame('Updated Name', $account->name);
     }
 
-    #[Test]
-    public function it_accepts_a_flat_create_response_for_back_compat(): void
-    {
-        $http = $this->createMock(HttpClientInterface::class);
-        $http->method('post')
-            ->willReturn(new Response(201, $this->accountData('789', '3000', 'Receivables')));
-
-        $service = new AccountService($http);
-        $account = $service->create([
-            'code' => '3000',
-            'name' => 'Receivables',
-            'type' => 'asset',
-            'category' => 'system',
-        ]);
-
-        $this->assertSame('789', $account->id);
-    }
 
     #[Test]
     public function it_deletes_account(): void

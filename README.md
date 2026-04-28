@@ -248,6 +248,13 @@ $code = $ledga->transactionCodes->update($code->id, [
     'entries_template' => $code->entriesTemplate,
 ]);
 
+// Pre-flight params against the template's params_schema before invoking
+$valid = $ledga->transactionCodes->validateParams($code->id, [
+    'amount' => '100.00',
+    'from_account' => '1000',
+    'to_account' => '4000',
+]);
+
 // Retire a trancode — one-way transition, no reactivate route
 $code = $ledga->transactionCodes->deprecate($code->id);
 assert($code->status === Ledga\Api\Enums\TransactionCodeStatus::Deprecated);
@@ -266,9 +273,6 @@ $journal = $ledga->journals->create([
 
 // List journals
 $journals = $ledga->journals->list();
-
-// Close a journal
-$journal = $ledga->journals->close('journal-uuid');
 ```
 
 ### Account Sets
@@ -292,22 +296,10 @@ $trialBalance = $ledga->reports->trialBalance([
     'as_of_date' => '2025-01-31',
 ]);
 
-// Balance sheet
-$balanceSheet = $ledga->reports->balanceSheet([
-    'as_of_date' => '2025-01-31',
-]);
-
 // Income statement
 $incomeStatement = $ledga->reports->incomeStatement([
     'start_date' => '2025-01-01',
     'end_date' => '2025-01-31',
-]);
-
-// General ledger
-$generalLedger = $ledga->reports->generalLedger([
-    'start_date' => '2025-01-01',
-    'end_date' => '2025-01-31',
-    'account_id' => 'account-uuid',
 ]);
 ```
 
@@ -434,7 +426,7 @@ try {
 - The Ledga API wraps every single-resource response in a `{"success": true, "data": {...}}` envelope. The SDK strips this at the boundary; resource DTOs expose flat properties.
 - Cursor pagination metadata lives at `meta.pagination.{next_cursor, previous_cursor, limit, has_more}`. Use the `PaginatedResponse->nextCursor`, `prevCursor`, `perPage`, and `hasMore()` accessors.
 - `Account::$category` is an `AccountCategory` enum. Compare with cases, not strings: `$account->category === AccountCategory::System`.
-- Transaction codes are served at `/api/v1/trancodes`. Supported methods: `list`, `all`, `get`, `create`, `update`, `deprecate`. Trancodes are append-only — `code` and `status` are immutable on PUT, and `deprecate()` is a one-way transition (no reactivate). `TransactionCode::$status` is a `TransactionCodeStatus` enum (`Active`, `Deprecated`).
+- Transaction codes are served at `/api/v1/trancodes`. Supported methods: `list`, `all`, `get`, `create`, `update`, `validateParams`, `deprecate`. Trancodes are append-only — `code` and `status` are immutable on PUT, and `deprecate()` is a one-way transition (no reactivate). `TransactionCode::$status` is a `TransactionCodeStatus` enum (`Active`, `Deprecated`).
 - `POST /transactions` is asynchronous and returns a `TransactionAcknowledgement` (id, status, idempotency key, correlation id, message). Both modes — explicit entries (`create()`) and trancode invocation (`createFromCode()`) — funnel through this endpoint. Use `transactions->get($ack->id)` to fetch the durable transaction once accepted.
 
 ## Testing

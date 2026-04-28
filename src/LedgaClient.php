@@ -50,10 +50,12 @@ final class LedgaClient
 
     /**
      * Get the SDK version.
+     *
+     * Tracks the next anticipated release tag. Bump when cutting a release.
      */
     public static function version(): string
     {
-        return '1.0.0';
+        return '0.3.0-dev';
     }
 
     /**

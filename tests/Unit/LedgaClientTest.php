@@ -54,6 +54,6 @@ final class LedgaClientTest extends TestCase
     #[Test]
     public function it_returns_version(): void
     {
-        $this->assertSame('1.0.0', LedgaClient::version());
+        $this->assertSame('0.3.0-dev', LedgaClient::version());
     }
 }
