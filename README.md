@@ -142,18 +142,40 @@ echo "Ending balance: " . $history->endingBalance;
 
 ### Transactions
 
+`POST /transactions` is asynchronous: `create()` and `createFromCode()` return a `TransactionAcknowledgement` (the server has accepted the request but not yet committed entries). Poll `get($ack->id)` once you need the durable record.
+
 ```php
-// Create a transaction
-$transaction = $ledga->transactions->create([
+// Mode 1 — explicit entries
+$ack = $ledga->transactions->create([
     'description' => 'Invoice payment',
     'effective_date' => '2025-01-02',
+    'idempotency_key' => 'inv-001',
     'reference' => 'INV-001',
-    'layer' => 'SETTLED',
+    'layer' => 'settled',
     'entries' => [
         ['account_code' => '1000', 'type' => 'debit', 'amount' => '500.00'],
         ['account_code' => '1200', 'type' => 'credit', 'amount' => '500.00'],
     ],
 ]);
+echo $ack->id . " " . $ack->status->value; // "<uuid> pending"
+
+// Mode 2 — invoke a transaction code template
+$ack = $ledga->transactions->createFromCode(
+    'BOOK_TRANSFER',
+    [
+        'amount' => '100.00',
+        'from_account' => '1000',
+        'to_account' => '4000',
+    ],
+    [
+        'description' => 'Customer payment',
+        'effective_date' => '2025-01-02',
+        'idempotency_key' => 'cp-001',
+    ],
+);
+
+// Once the ack is produced, fetch the full Transaction
+$transaction = $ledga->transactions->get($ack->id);
 
 // List transactions
 $transactions = $ledga->transactions->list([
@@ -205,31 +227,40 @@ if ($response->hasRejections()) {
 
 ### Transaction Codes (Templates)
 
+Trancodes are reusable transaction templates. Once created, post a transaction against one with [`transactions->createFromCode()`](#transactions).
+
 ```php
-// Create a reusable transaction template
+// Create a parameterised template
 $code = $ledga->transactionCodes->create([
-    'code' => 'PAYMENT',
-    'name' => 'Customer Payment',
-    'params_schema' => [
-        'required' => ['amount'],
-        'properties' => [
-            'amount' => ['type' => 'string'],
-        ],
-    ],
+    'code' => 'BOOK_TRANSFER',
+    'name' => 'Internal book transfer',
     'entries_template' => [
         'entries' => [
-            ['account_code' => '1000', 'type' => 'debit', 'amount' => '{params.amount}'],
-            ['account_code' => '4000', 'type' => 'credit', 'amount' => '{params.amount}'],
+            ['account' => '{params.from_account}', 'type' => 'debit',  'amount' => '{params.amount}'],
+            ['account' => '{params.to_account}',   'type' => 'credit', 'amount' => '{params.amount}'],
         ],
     ],
 ]);
 
-// Execute a transaction code
-$transaction = $ledga->transactionCodes->execute('code-uuid', [
-    'amount' => '250.00',
-    'effective_date' => '2025-01-02',
+// Update name / template (PUT is full-replacement)
+$code = $ledga->transactionCodes->update($code->id, [
+    'name' => 'Customer Payment v2',
+    'entries_template' => $code->entriesTemplate,
 ]);
+
+// Pre-flight params against the template's params_schema before invoking
+$valid = $ledga->transactionCodes->validateParams($code->id, [
+    'amount' => '100.00',
+    'from_account' => '1000',
+    'to_account' => '4000',
+]);
+
+// Retire a trancode — one-way transition, no reactivate route
+$code = $ledga->transactionCodes->deprecate($code->id);
+assert($code->status === Ledga\Api\Enums\TransactionCodeStatus::Deprecated);
 ```
+
+Trancodes are append-only: `code` and `status` are immutable on PUT, and there is no `delete` route. Use `deprecate()` to retire one.
 
 ### Journals
 
@@ -242,9 +273,6 @@ $journal = $ledga->journals->create([
 
 // List journals
 $journals = $ledga->journals->list();
-
-// Close a journal
-$journal = $ledga->journals->close('journal-uuid');
 ```
 
 ### Account Sets
@@ -268,22 +296,10 @@ $trialBalance = $ledga->reports->trialBalance([
     'as_of_date' => '2025-01-31',
 ]);
 
-// Balance sheet
-$balanceSheet = $ledga->reports->balanceSheet([
-    'as_of_date' => '2025-01-31',
-]);
-
 // Income statement
 $incomeStatement = $ledga->reports->incomeStatement([
     'start_date' => '2025-01-01',
     'end_date' => '2025-01-31',
-]);
-
-// General ledger
-$generalLedger = $ledga->reports->generalLedger([
-    'start_date' => '2025-01-01',
-    'end_date' => '2025-01-31',
-    'account_id' => 'account-uuid',
 ]);
 ```
 
@@ -393,6 +409,8 @@ try {
 | `PENDING` | Transactions awaiting settlement |
 | `ENCUMBRANCE` | Reserved funds (holds, commitments) |
 
+> **Request vs response casing.** When creating transactions, send `layer` in lowercase (`settled`, `pending`, `encumbrance`) — the API rejects uppercase with a 422. Responses still come back uppercase, so the `TransactionLayer` enum cases (`Settled`, `Pending`, `Encumbrance`) match the response side. Don't pass `TransactionLayer::Settled->value` directly into a create payload.
+
 ### Transaction Status
 
 | Status | Description |
@@ -402,6 +420,14 @@ try {
 | `void` | Transaction voided |
 | `failed` | Transaction failed validation |
 | `reversed` | Transaction has been reversed |
+
+## Response shape and contract
+
+- The Ledga API wraps every single-resource response in a `{"success": true, "data": {...}}` envelope. The SDK strips this at the boundary; resource DTOs expose flat properties.
+- Cursor pagination metadata lives at `meta.pagination.{next_cursor, previous_cursor, limit, has_more}`. Use the `PaginatedResponse->nextCursor`, `prevCursor`, `perPage`, and `hasMore()` accessors.
+- `Account::$category` is an `AccountCategory` enum. Compare with cases, not strings: `$account->category === AccountCategory::System`.
+- Transaction codes are served at `/api/v1/trancodes`. Supported methods: `list`, `all`, `get`, `create`, `update`, `validateParams`, `deprecate`. Trancodes are append-only — `code` and `status` are immutable on PUT, and `deprecate()` is a one-way transition (no reactivate). `TransactionCode::$status` is a `TransactionCodeStatus` enum (`Active`, `Deprecated`).
+- `POST /transactions` is asynchronous and returns a `TransactionAcknowledgement` (id, status, idempotency key, correlation id, message). Both modes — explicit entries (`create()`) and trancode invocation (`createFromCode()`) — funnel through this endpoint. Use `transactions->get($ack->id)` to fetch the durable transaction once accepted.
 
 ## Testing
 

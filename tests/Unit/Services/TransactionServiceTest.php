@@ -4,36 +4,130 @@ declare(strict_types=1);
 
 namespace Ledga\Api\Tests\Unit\Services;
 
+use Ledga\Api\Enums\TransactionStatus;
 use Ledga\Api\Http\HttpClientInterface;
 use Ledga\Api\Http\Response;
 use Ledga\Api\Resources\BatchResponse;
-use Ledga\Api\Resources\Transaction;
+use Ledga\Api\Resources\TransactionAcknowledgement;
 use Ledga\Api\Services\TransactionService;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 final class TransactionServiceTest extends TestCase
 {
     #[Test]
-    public function it_creates_transaction(): void
+    public function it_returns_an_acknowledgement_from_create(): void
     {
         $http = $this->createMock(HttpClientInterface::class);
         $http->method('post')
             ->with('transactions', $this->anything())
-            ->willReturn(new Response(201, $this->transactionData()));
+            ->willReturn(new Response(202, ['data' => $this->ackData()]));
 
         $service = new TransactionService($http);
-        $transaction = $service->create([
+        $ack = $service->create([
             'description' => 'Payment received',
             'effective_date' => '2025-01-01',
+            'idempotency_key' => 'idem-1',
             'entries' => [
                 ['account_code' => '1000', 'type' => 'debit', 'amount' => '100.00'],
                 ['account_code' => '4000', 'type' => 'credit', 'amount' => '100.00'],
             ],
         ]);
 
-        $this->assertInstanceOf(Transaction::class, $transaction);
-        $this->assertSame('tx-123', $transaction->id);
+        $this->assertInstanceOf(TransactionAcknowledgement::class, $ack);
+        $this->assertSame('tx-123', $ack->id);
+        $this->assertSame(TransactionStatus::Pending, $ack->status);
+        $this->assertSame('idem-1', $ack->idempotencyKey);
+    }
+
+    #[Test]
+    public function it_creates_from_trancode(): void
+    {
+        $http = $this->createMock(HttpClientInterface::class);
+        $http->expects($this->once())
+            ->method('post')
+            ->with('transactions', [
+                'description' => 'Customer payment',
+                'effective_date' => '2026-04-28',
+                'idempotency_key' => 'idem-1',
+                'transaction_code' => 'BOOK_TRANSFER',
+                'transaction_code_params' => [
+                    'amount' => '100.00',
+                    'from_account' => '1000',
+                    'to_account' => '4000',
+                ],
+            ])
+            ->willReturn(new Response(202, ['data' => $this->ackData()]));
+
+        $service = new TransactionService($http);
+        $ack = $service->createFromCode(
+            'BOOK_TRANSFER',
+            [
+                'amount' => '100.00',
+                'from_account' => '1000',
+                'to_account' => '4000',
+            ],
+            [
+                'description' => 'Customer payment',
+                'effective_date' => '2026-04-28',
+                'idempotency_key' => 'idem-1',
+            ],
+        );
+
+        $this->assertInstanceOf(TransactionAcknowledgement::class, $ack);
+        $this->assertSame('tx-123', $ack->id);
+        $this->assertSame(TransactionStatus::Pending, $ack->status);
+    }
+
+    /**
+     * @return array<int, array{0: string}>
+     */
+    public static function reservedExtrasProvider(): array
+    {
+        return [
+            'entries belongs to direct-entry mode' => ['entries'],
+            'transaction_code is set by the method' => ['transaction_code'],
+            'transaction_code_params is set by the method' => ['transaction_code_params'],
+        ];
+    }
+
+    #[Test]
+    #[DataProvider('reservedExtrasProvider')]
+    public function create_from_trancode_rejects_reserved_keys_in_extras(string $reservedKey): void
+    {
+        $http = $this->createMock(HttpClientInterface::class);
+        $http->expects($this->never())->method('post');
+
+        $service = new TransactionService($http);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage("\$extra must not contain '{$reservedKey}'");
+
+        $service->createFromCode(
+            'BOOK_TRANSFER',
+            ['amount' => '50.00'],
+            [
+                $reservedKey => 'whatever',
+                'description' => 'x',
+                'effective_date' => '2026-04-28',
+                'idempotency_key' => 'idem-2',
+            ],
+        );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function ackData(): array
+    {
+        return [
+            'id' => 'tx-123',
+            'status' => 'pending',
+            'idempotency_key' => 'idem-1',
+            'correlation_id' => 'corr-1',
+            'message' => 'Transaction accepted and processing',
+        ];
     }
 
     #[Test]
@@ -45,14 +139,16 @@ final class TransactionServiceTest extends TestCase
                 'reason' => 'Customer refund',
                 'date' => '2025-01-02',
             ])
-            ->willReturn(new Response(201, array_merge(
-                $this->transactionData(),
-                [
-                    'id' => 'tx-456',
-                    'original_transaction_id' => 'tx-123',
-                    'reversal_reason' => 'Customer refund',
-                ]
-            )));
+            ->willReturn(new Response(201, [
+                'data' => array_merge(
+                    $this->transactionData(),
+                    [
+                        'id' => 'tx-456',
+                        'original_transaction_id' => 'tx-123',
+                        'reversal_reason' => 'Customer refund',
+                    ],
+                ),
+            ]));
 
         $service = new TransactionService($http);
         $reversal = $service->reverse('tx-123', [
@@ -93,28 +189,31 @@ final class TransactionServiceTest extends TestCase
                 ],
             ])
             ->willReturn(new Response(202, [
-                'results' => [
-                    [
-                        'idempotency_key' => 'tx-001',
-                        'status' => 'accepted',
-                        'id' => 'uuid-1',
-                        'correlation_id' => null,
-                        'error' => null,
-                        'error_code' => null,
+                'success' => true,
+                'data' => [
+                    'results' => [
+                        [
+                            'idempotency_key' => 'tx-001',
+                            'status' => 'accepted',
+                            'id' => 'uuid-1',
+                            'correlation_id' => null,
+                            'error' => null,
+                            'error_code' => null,
+                        ],
+                        [
+                            'idempotency_key' => 'tx-002',
+                            'status' => 'accepted',
+                            'id' => 'uuid-2',
+                            'correlation_id' => null,
+                            'error' => null,
+                            'error_code' => null,
+                        ],
                     ],
-                    [
-                        'idempotency_key' => 'tx-002',
-                        'status' => 'accepted',
-                        'id' => 'uuid-2',
-                        'correlation_id' => null,
-                        'error' => null,
-                        'error_code' => null,
+                    'summary' => [
+                        'total' => 2,
+                        'accepted' => 2,
+                        'rejected' => 0,
                     ],
-                ],
-                'summary' => [
-                    'total' => 2,
-                    'accepted' => 2,
-                    'rejected' => 0,
                 ],
             ]));
 
@@ -157,28 +256,31 @@ final class TransactionServiceTest extends TestCase
         $http = $this->createMock(HttpClientInterface::class);
         $http->method('post')
             ->willReturn(new Response(202, [
-                'results' => [
-                    [
-                        'idempotency_key' => 'tx-001',
-                        'status' => 'accepted',
-                        'id' => 'uuid-1',
-                        'correlation_id' => null,
-                        'error' => null,
-                        'error_code' => null,
+                'success' => true,
+                'data' => [
+                    'results' => [
+                        [
+                            'idempotency_key' => 'tx-001',
+                            'status' => 'accepted',
+                            'id' => 'uuid-1',
+                            'correlation_id' => null,
+                            'error' => null,
+                            'error_code' => null,
+                        ],
+                        [
+                            'idempotency_key' => 'tx-002',
+                            'status' => 'rejected',
+                            'id' => null,
+                            'correlation_id' => null,
+                            'error' => 'Transaction does not balance',
+                            'error_code' => 'UNBALANCED',
+                        ],
                     ],
-                    [
-                        'idempotency_key' => 'tx-002',
-                        'status' => 'rejected',
-                        'id' => null,
-                        'correlation_id' => null,
-                        'error' => 'Transaction does not balance',
-                        'error_code' => 'UNBALANCED',
+                    'summary' => [
+                        'total' => 2,
+                        'accepted' => 1,
+                        'rejected' => 1,
                     ],
-                ],
-                'summary' => [
-                    'total' => 2,
-                    'accepted' => 1,
-                    'rejected' => 1,
                 ],
             ]));
 

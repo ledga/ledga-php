@@ -59,7 +59,7 @@ final class AccountService extends AbstractService
     /**
      * Create a new account.
      *
-     * @param array<string, mixed> $data Account data (code, name, type required)
+     * @param array<string, mixed> $data Account data (code, name, type, category required)
      */
     public function create(array $data): Account
     {
@@ -93,7 +93,7 @@ final class AccountService extends AbstractService
     {
         $response = $this->http->get($this->basePath() . '/' . $id . '/balance', $params);
 
-        return AccountBalance::fromArray($response->data);
+        return AccountBalance::fromArray($response->unwrap());
     }
 
     /**
@@ -105,7 +105,7 @@ final class AccountService extends AbstractService
     {
         $response = $this->http->post($this->basePath() . '/initialize-defaults');
 
-        return $response->data;
+        return $response->unwrap();
     }
 
     /**
@@ -125,7 +125,7 @@ final class AccountService extends AbstractService
     {
         $response = $this->http->get($this->basePath() . '/code/' . $code . '/balance', $params);
 
-        return AccountBalance::fromArray($response->data);
+        return AccountBalance::fromArray($response->unwrap());
     }
 
     /**
@@ -137,7 +137,7 @@ final class AccountService extends AbstractService
     {
         $response = $this->http->get($this->basePath() . '/' . $id . '/balance-history', $params);
 
-        return BalanceHistory::fromArray($response->data);
+        return BalanceHistory::fromArray($response->unwrap());
     }
 
     /**

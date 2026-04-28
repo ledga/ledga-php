@@ -8,6 +8,7 @@ use Ledga\Api\Pagination\CursorPaginator;
 use Ledga\Api\Pagination\PaginatedResponse;
 use Ledga\Api\Resources\BatchResponse;
 use Ledga\Api\Resources\Transaction;
+use Ledga\Api\Resources\TransactionAcknowledgement;
 
 /**
  * @extends AbstractService<Transaction>
@@ -55,13 +56,61 @@ final class TransactionService extends AbstractService
     }
 
     /**
-     * Create a new transaction.
+     * Submit a new transaction with explicit entries (Mode 1).
      *
-     * @param array<string, mixed> $data Transaction data including entries
+     * Returns a `TransactionAcknowledgement` — the server has accepted the request
+     * but not yet committed entries. Poll with `transactions->get($ack->id)` once you
+     * need the durable transaction record. For trancode-driven posting (Mode 2) use
+     * {@see self::createFromCode()} instead; the two modes are mutually exclusive.
+     *
+     * @param array<string, mixed> $data Transaction data — `description`, `effective_date`,
+     *                                   `idempotency_key`, `entries` required;
+     *                                   `layer`, `journal_id`, `correlation_id`,
+     *                                   `correlation_type`, `metadata` optional.
      */
-    public function create(array $data): Transaction
+    public function create(array $data): TransactionAcknowledgement
     {
-        return $this->createRequest($this->basePath(), $data);
+        $response = $this->http->post($this->basePath(), $data);
+
+        return TransactionAcknowledgement::fromArray($response->unwrap());
+    }
+
+    /**
+     * Submit a transaction by invoking a transaction code template (Mode 2).
+     *
+     * The server resolves $code to an active trancode in the current ledger, validates
+     * $params against the trancode's params_schema, runs the entries template through
+     * the expression engine, and writes the resulting balanced entries. Returns a
+     * `TransactionAcknowledgement`; same async polling story as {@see self::create()}.
+     *
+     * @param string               $code   Trancode `code` (e.g. "BOOK_TRANSFER"). Must be active.
+     * @param array<string, mixed> $params Parameter map matching the trancode's params_schema.
+     * @param array<string, mixed> $extra  Wrapper fields — `description`, `effective_date`,
+     *                                     `idempotency_key` are required by the server;
+     *                                     `layer`, `journal_id`, `correlation_id`,
+     *                                     `correlation_type`, `reference`, `metadata` optional.
+     *                                     Must NOT contain `entries`, `transaction_code`, or
+     *                                     `transaction_code_params` — those keys are
+     *                                     mode-discriminating and either set by this method
+     *                                     or belong to direct-entry mode.
+     *
+     * @throws \InvalidArgumentException When $extra contains a reserved mode-discriminating key.
+     */
+    public function createFromCode(string $code, array $params, array $extra = []): TransactionAcknowledgement
+    {
+        foreach (['entries', 'transaction_code', 'transaction_code_params'] as $reserved) {
+            if (array_key_exists($reserved, $extra)) {
+                throw new \InvalidArgumentException(
+                    "createFromCode(): \$extra must not contain '{$reserved}' — "
+                    . 'this key belongs to direct-entry mode or is set by the method itself.',
+                );
+            }
+        }
+
+        return $this->create(array_merge($extra, [
+            'transaction_code' => $code,
+            'transaction_code_params' => $params,
+        ]));
     }
 
     /**
@@ -73,7 +122,7 @@ final class TransactionService extends AbstractService
     {
         $response = $this->http->post($this->basePath() . '/' . $id . '/reverse', $data);
 
-        return Transaction::fromArray($response->data);
+        return Transaction::fromArray($response->unwrap());
     }
 
     /**
@@ -90,6 +139,6 @@ final class TransactionService extends AbstractService
             'transactions' => $transactions,
         ]);
 
-        return BatchResponse::fromArray($response->data);
+        return BatchResponse::fromArray($response->unwrap());
     }
 }

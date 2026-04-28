@@ -6,7 +6,6 @@ namespace Ledga\Api\Services;
 
 use Ledga\Api\Pagination\CursorPaginator;
 use Ledga\Api\Pagination\PaginatedResponse;
-use Ledga\Api\Resources\Transaction;
 use Ledga\Api\Resources\TransactionCode;
 
 /**
@@ -21,7 +20,7 @@ final class TransactionCodeService extends AbstractService
 
     protected function basePath(): string
     {
-        return 'transaction-codes';
+        return 'trancodes';
     }
 
     /**
@@ -57,6 +56,10 @@ final class TransactionCodeService extends AbstractService
     /**
      * Create a new transaction code.
      *
+     * `code` must match `^[A-Z0-9_-]+$` (uppercase alphanumeric, dashes, underscores) and
+     * is unique per ledger. Entry templates reference parameters via `{params.NAME}` —
+     * bare `{NAME}` is reserved for system variables and will be rejected.
+     *
      * @param array<string, mixed> $data Transaction code data (code, name, entries_template required)
      */
     public function create(array $data): TransactionCode
@@ -67,6 +70,10 @@ final class TransactionCodeService extends AbstractService
     /**
      * Update a transaction code.
      *
+     * Full-replacement PUT — `name` and `entries_template` are required. The `code` and
+     * `status` fields are immutable post-creation and are silently ignored if sent.
+     * Use {@see self::deprecate()} to retire a trancode.
+     *
      * @param array<string, mixed> $data Transaction code data to update
      */
     public function update(string $id, array $data): TransactionCode
@@ -75,22 +82,31 @@ final class TransactionCodeService extends AbstractService
     }
 
     /**
-     * Delete a transaction code.
+     * Mark a transaction code as deprecated. One-way transition: there is no reactivate
+     * route, deprecated trancodes cannot be returned to active.
      */
-    public function delete(string $id): void
+    public function deprecate(string $id): TransactionCode
     {
-        $this->deleteRequest($this->basePath() . '/' . $id);
+        $response = $this->http->post($this->basePath() . '/' . $id . '/deprecate');
+
+        return TransactionCode::fromArray($response->unwrap());
     }
 
     /**
-     * Execute a transaction code with parameters.
+     * Pre-flight a parameter payload against a trancode's `params_schema` without
+     * creating a transaction. Returns true when the payload is valid; on failure the
+     * server returns 422 and `LedgaValidationException` is thrown with the per-field
+     * errors in `errorBody`.
      *
-     * @param array<string, mixed> $params Parameters for the transaction code
+     * @param array<string, mixed> $params Parameter payload to validate.
      */
-    public function execute(string $id, array $params): Transaction
+    public function validateParams(string $id, array $params): bool
     {
-        $response = $this->http->post($this->basePath() . '/' . $id . '/execute', $params);
+        $response = $this->http->post(
+            $this->basePath() . '/' . $id . '/validate-params',
+            ['params' => $params],
+        );
 
-        return Transaction::fromArray($response->data);
+        return (bool) ($response->unwrap()['valid'] ?? false);
     }
 }

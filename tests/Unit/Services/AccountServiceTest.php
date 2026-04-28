@@ -23,13 +23,18 @@ final class AccountServiceTest extends TestCase
         $http->method('get')
             ->with('accounts', [])
             ->willReturn(new Response(200, [
+                'success' => true,
                 'data' => [
                     $this->accountData('1', '1000', 'Cash'),
                     $this->accountData('2', '1100', 'Bank'),
                 ],
                 'meta' => [
-                    'next_cursor' => 'cursor123',
-                    'per_page' => 25,
+                    'pagination' => [
+                        'limit' => 25,
+                        'has_more' => true,
+                        'next_cursor' => 'cursor123',
+                        'previous_cursor' => null,
+                    ],
                 ],
             ]));
 
@@ -40,6 +45,7 @@ final class AccountServiceTest extends TestCase
         $this->assertInstanceOf(Account::class, $result->data[0]);
         $this->assertSame('1000', $result->data[0]->code);
         $this->assertTrue($result->hasMore());
+        $this->assertSame('cursor123', $result->nextCursor);
     }
 
     #[Test]
@@ -48,7 +54,7 @@ final class AccountServiceTest extends TestCase
         $http = $this->createMock(HttpClientInterface::class);
         $http->method('get')
             ->with('accounts/123')
-            ->willReturn(new Response(200, $this->accountData('123', '1000', 'Cash')));
+            ->willReturn(new Response(200, ['data' => $this->accountData('123', '1000', 'Cash')]));
 
         $service = new AccountService($http);
         $account = $service->get('123');
@@ -64,7 +70,7 @@ final class AccountServiceTest extends TestCase
         $http = $this->createMock(HttpClientInterface::class);
         $http->method('post')
             ->with('accounts', ['code' => '2000', 'name' => 'Inventory', 'type' => 'asset', 'category' => 'system'])
-            ->willReturn(new Response(201, $this->accountData('456', '2000', 'Inventory')));
+            ->willReturn(new Response(201, ['data' => $this->accountData('456', '2000', 'Inventory')]));
 
         $service = new AccountService($http);
         $account = $service->create([
@@ -84,13 +90,14 @@ final class AccountServiceTest extends TestCase
         $http = $this->createMock(HttpClientInterface::class);
         $http->method('put')
             ->with('accounts/123', ['name' => 'Updated Name'])
-            ->willReturn(new Response(200, $this->accountData('123', '1000', 'Updated Name')));
+            ->willReturn(new Response(200, ['data' => $this->accountData('123', '1000', 'Updated Name')]));
 
         $service = new AccountService($http);
         $account = $service->update('123', ['name' => 'Updated Name']);
 
         $this->assertSame('Updated Name', $account->name);
     }
+
 
     #[Test]
     public function it_deletes_account(): void
@@ -150,7 +157,7 @@ final class AccountServiceTest extends TestCase
         $http = $this->createMock(HttpClientInterface::class);
         $http->method('get')
             ->with('accounts/code/1000')
-            ->willReturn(new Response(200, $this->accountData('123', '1000', 'Cash')));
+            ->willReturn(new Response(200, ['data' => $this->accountData('123', '1000', 'Cash')]));
 
         $service = new AccountService($http);
         $account = $service->getByCode('1000');
@@ -205,13 +212,16 @@ final class AccountServiceTest extends TestCase
         $http->method('get')
             ->with('accounts/123/balance-history', ['start_date' => '2025-01-01'])
             ->willReturn(new Response(200, [
-                'account' => ['id' => '123', 'code' => '1000', 'name' => 'Cash'],
-                'period' => ['start' => '2025-01-01', 'end' => '2025-01-31'],
-                'history' => [
-                    ['date' => '2025-01-01', 'balance' => '100.00'],
-                    ['date' => '2025-01-15', 'balance' => '500.00'],
+                'success' => true,
+                'data' => [
+                    'account' => ['id' => '123', 'code' => '1000', 'name' => 'Cash'],
+                    'period' => ['start' => '2025-01-01', 'end' => '2025-01-31'],
+                    'history' => [
+                        ['date' => '2025-01-01', 'balance' => '100.00'],
+                        ['date' => '2025-01-15', 'balance' => '500.00'],
+                    ],
+                    'ending_balance' => '500.00',
                 ],
-                'ending_balance' => '500.00',
             ]));
 
         $service = new AccountService($http);
@@ -229,6 +239,7 @@ final class AccountServiceTest extends TestCase
         $http->method('get')
             ->with('accounts/123/entries', [])
             ->willReturn(new Response(200, [
+                'success' => true,
                 'data' => [
                     [
                         'id' => 'entry-1',
@@ -262,8 +273,10 @@ final class AccountServiceTest extends TestCase
                 ],
                 'meta' => [
                     'pagination' => [
+                        'limit' => 25,
+                        'has_more' => false,
                         'next_cursor' => null,
-                        'per_page' => 25,
+                        'previous_cursor' => null,
                     ],
                 ],
             ]));

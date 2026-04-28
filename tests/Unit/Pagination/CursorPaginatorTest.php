@@ -25,7 +25,7 @@ final class CursorPaginatorTest extends TestCase
                     $this->accountData('1'),
                     $this->accountData('2'),
                 ],
-                'meta' => ['next_cursor' => null],
+                'meta' => ['pagination' => ['next_cursor' => null]],
             ]));
 
         $paginator = new CursorPaginator($http, 'accounts', [], Account::class);
@@ -51,17 +51,17 @@ final class CursorPaginatorTest extends TestCase
                 if ($cursor === null) {
                     return new Response(200, [
                         'data' => [$this->accountData('1')],
-                        'meta' => ['next_cursor' => 'page2'],
+                        'meta' => ['pagination' => ['next_cursor' => 'page2']],
                     ]);
                 } elseif ($cursor === 'page2') {
                     return new Response(200, [
                         'data' => [$this->accountData('2')],
-                        'meta' => ['next_cursor' => 'page3'],
+                        'meta' => ['pagination' => ['next_cursor' => 'page3']],
                     ]);
                 } else {
                     return new Response(200, [
                         'data' => [$this->accountData('3')],
-                        'meta' => ['next_cursor' => null],
+                        'meta' => ['pagination' => ['next_cursor' => null]],
                     ]);
                 }
             });

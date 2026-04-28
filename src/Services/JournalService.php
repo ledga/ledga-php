@@ -80,14 +80,4 @@ final class JournalService extends AbstractService
     {
         $this->deleteRequest($this->basePath() . '/' . $id);
     }
-
-    /**
-     * Close a journal.
-     */
-    public function close(string $id): Journal
-    {
-        $response = $this->http->post($this->basePath() . '/' . $id . '/close');
-
-        return Journal::fromArray($response->data);
-    }
 }

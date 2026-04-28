@@ -65,7 +65,7 @@ abstract class AbstractService
         $response = $this->http->get($path);
         $class = $this->resourceClass();
 
-        return $class::fromArray($response->data);
+        return $class::fromArray($response->unwrap());
     }
 
     /**
@@ -77,7 +77,7 @@ abstract class AbstractService
         $response = $this->http->post($path, $data);
         $class = $this->resourceClass();
 
-        return $class::fromArray($response->data);
+        return $class::fromArray($response->unwrap());
     }
 
     /**
@@ -89,7 +89,7 @@ abstract class AbstractService
         $response = $this->http->put($path, $data);
         $class = $this->resourceClass();
 
-        return $class::fromArray($response->data);
+        return $class::fromArray($response->unwrap());
     }
 
     protected function deleteRequest(string $path): void
