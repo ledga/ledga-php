@@ -405,15 +405,12 @@ try {
 | `failed` | Transaction failed validation |
 | `reversed` | Transaction has been reversed |
 
-## Upgrade notes
+## Response shape and contract
 
-### v0.2.x — uniform envelope contract
-
-- The Ledga API now wraps every single-resource response in a `{"success": true, "data": {...}}` envelope. The SDK strips this for you at the boundary; resource DTOs continue to expose flat properties.
-- Cursor pagination metadata moved to `meta.pagination.{next_cursor, previous_cursor, limit, has_more}`. `PaginatedResponse->nextCursor`, `prevCursor`, `perPage`, and `hasMore()` continue to work — no caller change needed.
-- **Breaking:** `Account::$category` is now an `AccountCategory` enum (was `?string`). Update any consumer code that compared the value as a string: `$account->category === 'system'` → `$account->category === AccountCategory::System`.
-- **Breaking:** transaction-codes service now hits `/api/v1/trancodes` (was `/transaction-codes`). No caller-facing surface change — calls go through `$ledga->transactionCodes->...` as before.
-- **Breaking:** `$ledga->transactionCodes->delete()` and `->execute()` are removed. The API does not expose `DELETE /trancodes/{id}` or `/trancodes/{id}/execute` — calling them only ever 4xx'd. Mark a trancode unused via the existing `update()` flow if needed.
+- The Ledga API wraps every single-resource response in a `{"success": true, "data": {...}}` envelope. The SDK strips this at the boundary; resource DTOs expose flat properties.
+- Cursor pagination metadata lives at `meta.pagination.{next_cursor, previous_cursor, limit, has_more}`. Use the `PaginatedResponse->nextCursor`, `prevCursor`, `perPage`, and `hasMore()` accessors.
+- `Account::$category` is an `AccountCategory` enum. Compare with cases, not strings: `$account->category === AccountCategory::System`.
+- Transaction codes are served at `/api/v1/trancodes`. Use `$ledga->transactionCodes->...` — `list`, `all`, `get`, `create`, `update` are supported. There is no `delete` or `execute`; trancodes are append-only.
 
 ## Testing
 
