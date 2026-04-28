@@ -27,19 +27,6 @@ final class ReportService
     }
 
     /**
-     * Get balance sheet report.
-     *
-     * @param array<string, mixed> $params Report parameters (as_of_date)
-     * @return array<string, mixed>
-     */
-    public function balanceSheet(array $params = []): array
-    {
-        $response = $this->http->get('reports/balance-sheet', $params);
-
-        return $response->unwrap();
-    }
-
-    /**
      * Get income statement report.
      *
      * @param array<string, mixed> $params Report parameters (start_date, end_date)
@@ -48,19 +35,6 @@ final class ReportService
     public function incomeStatement(array $params = []): array
     {
         $response = $this->http->get('reports/income-statement', $params);
-
-        return $response->unwrap();
-    }
-
-    /**
-     * Get general ledger report.
-     *
-     * @param array<string, mixed> $params Report parameters (start_date, end_date, account_id)
-     * @return array<string, mixed>
-     */
-    public function generalLedger(array $params = []): array
-    {
-        $response = $this->http->get('reports/general-ledger', $params);
 
         return $response->unwrap();
     }

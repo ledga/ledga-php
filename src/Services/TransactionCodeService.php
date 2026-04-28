@@ -68,11 +68,23 @@ final class TransactionCodeService extends AbstractService
      *
      * Full-replacement PUT — `name` and `entries_template` are required. The `code` and
      * `status` fields are immutable post-creation and are silently ignored if sent.
+     * Use {@see self::deprecate()} to retire a trancode.
      *
      * @param array<string, mixed> $data Transaction code data to update
      */
     public function update(string $id, array $data): TransactionCode
     {
         return $this->updateRequest($this->basePath() . '/' . $id, $data);
+    }
+
+    /**
+     * Mark a transaction code as deprecated. One-way transition: there is no reactivate
+     * route, deprecated trancodes cannot be returned to active.
+     */
+    public function deprecate(string $id): TransactionCode
+    {
+        $response = $this->http->post($this->basePath() . '/' . $id . '/deprecate');
+
+        return TransactionCode::fromArray($response->unwrap());
     }
 }

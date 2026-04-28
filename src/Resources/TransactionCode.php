@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Ledga\Api\Resources;
 
 use DateTimeImmutable;
+use Ledga\Api\Enums\TransactionCodeStatus;
 
 final readonly class TransactionCode implements ResourceInterface
 {
@@ -20,7 +21,7 @@ final readonly class TransactionCode implements ResourceInterface
         public string $code,
         public string $name,
         public ?string $description,
-        public string $status,
+        public TransactionCodeStatus $status,
         public int $version,
         public ?array $paramsSchema,
         public array $entriesTemplate,
@@ -42,7 +43,7 @@ final readonly class TransactionCode implements ResourceInterface
             code: $data['code'],
             name: $data['name'],
             description: $data['description'] ?? null,
-            status: $data['status'] ?? 'active',
+            status: TransactionCodeStatus::from($data['status'] ?? 'active'),
             version: $data['version'] ?? 1,
             paramsSchema: $data['params_schema'] ?? null,
             entriesTemplate: $data['entries_template'] ?? [],

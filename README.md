@@ -210,26 +210,26 @@ if ($response->hasRejections()) {
 $code = $ledga->transactionCodes->create([
     'code' => 'PAYMENT',
     'name' => 'Customer Payment',
-    'params_schema' => [
-        'required' => ['amount'],
-        'properties' => [
-            'amount' => ['type' => 'string'],
-        ],
-    ],
     'entries_template' => [
         'entries' => [
-            ['account_code' => '1000', 'type' => 'debit', 'amount' => '{params.amount}'],
-            ['account_code' => '4000', 'type' => 'credit', 'amount' => '{params.amount}'],
+            ['account' => '1000', 'type' => 'debit', 'amount' => '{{amount}}'],
+            ['account' => '4000', 'type' => 'credit', 'amount' => '{{amount}}'],
         ],
     ],
 ]);
 
-// Execute a transaction code
-$transaction = $ledga->transactionCodes->execute('code-uuid', [
-    'amount' => '250.00',
-    'effective_date' => '2025-01-02',
+// Update name / template (PUT is full-replacement)
+$code = $ledga->transactionCodes->update($code->id, [
+    'name' => 'Customer Payment v2',
+    'entries_template' => $code->entriesTemplate,
 ]);
+
+// Retire a trancode — one-way transition, no reactivate route
+$code = $ledga->transactionCodes->deprecate($code->id);
+assert($code->status === Ledga\Api\Enums\TransactionCodeStatus::Deprecated);
 ```
+
+Trancodes are append-only: `code` and `status` are immutable on PUT, and there is no `delete` route. Use `deprecate()` to retire one.
 
 ### Journals
 
@@ -410,7 +410,7 @@ try {
 - The Ledga API wraps every single-resource response in a `{"success": true, "data": {...}}` envelope. The SDK strips this at the boundary; resource DTOs expose flat properties.
 - Cursor pagination metadata lives at `meta.pagination.{next_cursor, previous_cursor, limit, has_more}`. Use the `PaginatedResponse->nextCursor`, `prevCursor`, `perPage`, and `hasMore()` accessors.
 - `Account::$category` is an `AccountCategory` enum. Compare with cases, not strings: `$account->category === AccountCategory::System`.
-- Transaction codes are served at `/api/v1/trancodes`. Use `$ledga->transactionCodes->...` — `list`, `all`, `get`, `create`, `update` are supported. There is no `delete` or `execute`; trancodes are append-only.
+- Transaction codes are served at `/api/v1/trancodes`. Supported methods: `list`, `all`, `get`, `create`, `update`, `deprecate`. Trancodes are append-only — `code` and `status` are immutable on PUT, and `deprecate()` is a one-way transition (no reactivate). `TransactionCode::$status` is a `TransactionCodeStatus` enum (`Active`, `Deprecated`).
 
 ## Testing
 

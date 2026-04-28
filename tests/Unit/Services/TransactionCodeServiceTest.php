@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Ledga\Api\Tests\Unit\Services;
 
+use Ledga\Api\Enums\TransactionCodeStatus;
 use Ledga\Api\Http\HttpClientInterface;
 use Ledga\Api\Http\Response;
 use Ledga\Api\Resources\TransactionCode;
@@ -27,12 +28,28 @@ final class TransactionCodeServiceTest extends TestCase
 
         $this->assertInstanceOf(TransactionCode::class, $code);
         $this->assertSame('INVOICE', $code->code);
+        $this->assertSame(TransactionCodeStatus::Active, $code->status);
+    }
+
+    #[Test]
+    public function it_deprecates_through_envelope(): void
+    {
+        $http = $this->createMock(HttpClientInterface::class);
+        $http->expects($this->once())
+            ->method('post')
+            ->with('trancodes/tc-1/deprecate')
+            ->willReturn(new Response(200, ['data' => $this->codeData('tc-1', 'INVOICE', 'deprecated')]));
+
+        $service = new TransactionCodeService($http);
+        $code = $service->deprecate('tc-1');
+
+        $this->assertSame(TransactionCodeStatus::Deprecated, $code->status);
     }
 
     /**
      * @return array<string, mixed>
      */
-    private function codeData(string $id, string $code): array
+    private function codeData(string $id, string $code, string $status = 'active'): array
     {
         return [
             'id' => $id,
@@ -40,7 +57,7 @@ final class TransactionCodeServiceTest extends TestCase
             'code' => $code,
             'name' => 'Invoice',
             'description' => null,
-            'status' => 'active',
+            'status' => $status,
             'version' => 1,
             'params_schema' => null,
             'entries_template' => [],
