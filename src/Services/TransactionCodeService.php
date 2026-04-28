@@ -56,6 +56,10 @@ final class TransactionCodeService extends AbstractService
     /**
      * Create a new transaction code.
      *
+     * `code` must match `^[A-Z0-9_-]+$` (uppercase alphanumeric, dashes, underscores) and
+     * is unique per ledger. Entry templates reference parameters via `{params.NAME}` —
+     * bare `{NAME}` is reserved for system variables and will be rejected.
+     *
      * @param array<string, mixed> $data Transaction code data (code, name, entries_template required)
      */
     public function create(array $data): TransactionCode
