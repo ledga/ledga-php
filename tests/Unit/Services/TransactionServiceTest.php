@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace Ledga\Api\Tests\Unit\Services;
 
+use Ledga\Api\Enums\TransactionStatus;
 use Ledga\Api\Http\HttpClientInterface;
 use Ledga\Api\Http\Response;
 use Ledga\Api\Resources\BatchResponse;
-use Ledga\Api\Resources\Transaction;
+use Ledga\Api\Resources\TransactionAcknowledgement;
 use Ledga\Api\Services\TransactionService;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -15,25 +16,107 @@ use PHPUnit\Framework\TestCase;
 final class TransactionServiceTest extends TestCase
 {
     #[Test]
-    public function it_creates_transaction(): void
+    public function it_returns_an_acknowledgement_from_create(): void
     {
         $http = $this->createMock(HttpClientInterface::class);
         $http->method('post')
             ->with('transactions', $this->anything())
-            ->willReturn(new Response(201, ['data' => $this->transactionData()]));
+            ->willReturn(new Response(202, ['data' => $this->ackData()]));
 
         $service = new TransactionService($http);
-        $transaction = $service->create([
+        $ack = $service->create([
             'description' => 'Payment received',
             'effective_date' => '2025-01-01',
+            'idempotency_key' => 'idem-1',
             'entries' => [
                 ['account_code' => '1000', 'type' => 'debit', 'amount' => '100.00'],
                 ['account_code' => '4000', 'type' => 'credit', 'amount' => '100.00'],
             ],
         ]);
 
-        $this->assertInstanceOf(Transaction::class, $transaction);
-        $this->assertSame('tx-123', $transaction->id);
+        $this->assertInstanceOf(TransactionAcknowledgement::class, $ack);
+        $this->assertSame('tx-123', $ack->id);
+        $this->assertSame(TransactionStatus::Pending, $ack->status);
+        $this->assertSame('idem-1', $ack->idempotencyKey);
+    }
+
+    #[Test]
+    public function it_creates_from_trancode(): void
+    {
+        $http = $this->createMock(HttpClientInterface::class);
+        $http->expects($this->once())
+            ->method('post')
+            ->with('transactions', [
+                'description' => 'Customer payment',
+                'effective_date' => '2026-04-28',
+                'idempotency_key' => 'idem-1',
+                'transaction_code' => 'BOOK_TRANSFER',
+                'transaction_code_params' => [
+                    'amount' => '100.00',
+                    'from_account' => '1000',
+                    'to_account' => '4000',
+                ],
+            ])
+            ->willReturn(new Response(202, ['data' => $this->ackData()]));
+
+        $service = new TransactionService($http);
+        $ack = $service->createFromCode(
+            'BOOK_TRANSFER',
+            [
+                'amount' => '100.00',
+                'from_account' => '1000',
+                'to_account' => '4000',
+            ],
+            [
+                'description' => 'Customer payment',
+                'effective_date' => '2026-04-28',
+                'idempotency_key' => 'idem-1',
+            ],
+        );
+
+        $this->assertInstanceOf(TransactionAcknowledgement::class, $ack);
+        $this->assertSame('tx-123', $ack->id);
+        $this->assertSame(TransactionStatus::Pending, $ack->status);
+    }
+
+    #[Test]
+    public function create_from_trancode_cannot_be_overridden_via_extras(): void
+    {
+        $http = $this->createMock(HttpClientInterface::class);
+        $http->expects($this->once())
+            ->method('post')
+            ->with('transactions', $this->callback(function (array $body): bool {
+                return $body['transaction_code'] === 'BOOK_TRANSFER'
+                    && $body['transaction_code_params'] === ['amount' => '50.00'];
+            }))
+            ->willReturn(new Response(202, ['data' => $this->ackData()]));
+
+        $service = new TransactionService($http);
+        $service->createFromCode(
+            'BOOK_TRANSFER',
+            ['amount' => '50.00'],
+            [
+                'transaction_code' => 'OTHER',
+                'transaction_code_params' => ['evil' => 'payload'],
+                'description' => 'x',
+                'effective_date' => '2026-04-28',
+                'idempotency_key' => 'idem-2',
+            ],
+        );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function ackData(): array
+    {
+        return [
+            'id' => 'tx-123',
+            'status' => 'pending',
+            'idempotency_key' => 'idem-1',
+            'correlation_id' => 'corr-1',
+            'message' => 'Transaction accepted and processing',
+        ];
     }
 
     #[Test]

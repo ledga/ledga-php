@@ -142,11 +142,14 @@ echo "Ending balance: " . $history->endingBalance;
 
 ### Transactions
 
+`POST /transactions` is asynchronous: `create()` and `createFromCode()` return a `TransactionAcknowledgement` (the server has accepted the request but not yet committed entries). Poll `get($ack->id)` once you need the durable record.
+
 ```php
-// Create a transaction
-$transaction = $ledga->transactions->create([
+// Mode 1 — explicit entries
+$ack = $ledga->transactions->create([
     'description' => 'Invoice payment',
     'effective_date' => '2025-01-02',
+    'idempotency_key' => 'inv-001',
     'reference' => 'INV-001',
     'layer' => 'settled',
     'entries' => [
@@ -154,6 +157,25 @@ $transaction = $ledga->transactions->create([
         ['account_code' => '1200', 'type' => 'credit', 'amount' => '500.00'],
     ],
 ]);
+echo $ack->id . " " . $ack->status->value; // "<uuid> pending"
+
+// Mode 2 — invoke a transaction code template
+$ack = $ledga->transactions->createFromCode(
+    'BOOK_TRANSFER',
+    [
+        'amount' => '100.00',
+        'from_account' => '1000',
+        'to_account' => '4000',
+    ],
+    [
+        'description' => 'Customer payment',
+        'effective_date' => '2025-01-02',
+        'idempotency_key' => 'cp-001',
+    ],
+);
+
+// Once the ack is produced, fetch the full Transaction
+$transaction = $ledga->transactions->get($ack->id);
 
 // List transactions
 $transactions = $ledga->transactions->list([
@@ -205,15 +227,17 @@ if ($response->hasRejections()) {
 
 ### Transaction Codes (Templates)
 
+Trancodes are reusable transaction templates. Once created, post a transaction against one with [`transactions->createFromCode()`](#transactions).
+
 ```php
-// Create a reusable transaction template
+// Create a parameterised template
 $code = $ledga->transactionCodes->create([
-    'code' => 'PAYMENT',
-    'name' => 'Customer Payment',
+    'code' => 'BOOK_TRANSFER',
+    'name' => 'Internal book transfer',
     'entries_template' => [
         'entries' => [
-            ['account' => '1000', 'type' => 'debit', 'amount' => '{{amount}}'],
-            ['account' => '4000', 'type' => 'credit', 'amount' => '{{amount}}'],
+            ['account' => '{params.from_account}', 'type' => 'debit',  'amount' => '{params.amount}'],
+            ['account' => '{params.to_account}',   'type' => 'credit', 'amount' => '{params.amount}'],
         ],
     ],
 ]);
@@ -411,6 +435,7 @@ try {
 - Cursor pagination metadata lives at `meta.pagination.{next_cursor, previous_cursor, limit, has_more}`. Use the `PaginatedResponse->nextCursor`, `prevCursor`, `perPage`, and `hasMore()` accessors.
 - `Account::$category` is an `AccountCategory` enum. Compare with cases, not strings: `$account->category === AccountCategory::System`.
 - Transaction codes are served at `/api/v1/trancodes`. Supported methods: `list`, `all`, `get`, `create`, `update`, `deprecate`. Trancodes are append-only — `code` and `status` are immutable on PUT, and `deprecate()` is a one-way transition (no reactivate). `TransactionCode::$status` is a `TransactionCodeStatus` enum (`Active`, `Deprecated`).
+- `POST /transactions` is asynchronous and returns a `TransactionAcknowledgement` (id, status, idempotency key, correlation id, message). Both modes — explicit entries (`create()`) and trancode invocation (`createFromCode()`) — funnel through this endpoint. Use `transactions->get($ack->id)` to fetch the durable transaction once accepted.
 
 ## Testing
 
