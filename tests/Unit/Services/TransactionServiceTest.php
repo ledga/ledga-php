@@ -10,6 +10,7 @@ use Ledga\Api\Http\Response;
 use Ledga\Api\Resources\BatchResponse;
 use Ledga\Api\Resources\TransactionAcknowledgement;
 use Ledga\Api\Services\TransactionService;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -79,25 +80,35 @@ final class TransactionServiceTest extends TestCase
         $this->assertSame(TransactionStatus::Pending, $ack->status);
     }
 
+    /**
+     * @return array<int, array{0: string}>
+     */
+    public static function reservedExtrasProvider(): array
+    {
+        return [
+            'entries belongs to direct-entry mode' => ['entries'],
+            'transaction_code is set by the method' => ['transaction_code'],
+            'transaction_code_params is set by the method' => ['transaction_code_params'],
+        ];
+    }
+
     #[Test]
-    public function create_from_trancode_cannot_be_overridden_via_extras(): void
+    #[DataProvider('reservedExtrasProvider')]
+    public function create_from_trancode_rejects_reserved_keys_in_extras(string $reservedKey): void
     {
         $http = $this->createMock(HttpClientInterface::class);
-        $http->expects($this->once())
-            ->method('post')
-            ->with('transactions', $this->callback(function (array $body): bool {
-                return $body['transaction_code'] === 'BOOK_TRANSFER'
-                    && $body['transaction_code_params'] === ['amount' => '50.00'];
-            }))
-            ->willReturn(new Response(202, ['data' => $this->ackData()]));
+        $http->expects($this->never())->method('post');
 
         $service = new TransactionService($http);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage("\$extra must not contain '{$reservedKey}'");
+
         $service->createFromCode(
             'BOOK_TRANSFER',
             ['amount' => '50.00'],
             [
-                'transaction_code' => 'OTHER',
-                'transaction_code_params' => ['evil' => 'payload'],
+                $reservedKey => 'whatever',
                 'description' => 'x',
                 'effective_date' => '2026-04-28',
                 'idempotency_key' => 'idem-2',

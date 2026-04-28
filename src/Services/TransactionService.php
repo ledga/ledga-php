@@ -89,9 +89,24 @@ final class TransactionService extends AbstractService
      *                                     `idempotency_key` are required by the server;
      *                                     `layer`, `journal_id`, `correlation_id`,
      *                                     `correlation_type`, `reference`, `metadata` optional.
+     *                                     Must NOT contain `entries`, `transaction_code`, or
+     *                                     `transaction_code_params` — those keys are
+     *                                     mode-discriminating and either set by this method
+     *                                     or belong to direct-entry mode.
+     *
+     * @throws \InvalidArgumentException When $extra contains a reserved mode-discriminating key.
      */
     public function createFromCode(string $code, array $params, array $extra = []): TransactionAcknowledgement
     {
+        foreach (['entries', 'transaction_code', 'transaction_code_params'] as $reserved) {
+            if (array_key_exists($reserved, $extra)) {
+                throw new \InvalidArgumentException(
+                    "createFromCode(): \$extra must not contain '{$reserved}' — "
+                    . 'this key belongs to direct-entry mode or is set by the method itself.',
+                );
+            }
+        }
+
         return $this->create(array_merge($extra, [
             'transaction_code' => $code,
             'transaction_code_params' => $params,
