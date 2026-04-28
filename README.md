@@ -148,7 +148,7 @@ $transaction = $ledga->transactions->create([
     'description' => 'Invoice payment',
     'effective_date' => '2025-01-02',
     'reference' => 'INV-001',
-    'layer' => 'SETTLED',
+    'layer' => 'settled',
     'entries' => [
         ['account_code' => '1000', 'type' => 'debit', 'amount' => '500.00'],
         ['account_code' => '1200', 'type' => 'credit', 'amount' => '500.00'],
@@ -392,6 +392,8 @@ try {
 | `SETTLED` | Finalized transactions |
 | `PENDING` | Transactions awaiting settlement |
 | `ENCUMBRANCE` | Reserved funds (holds, commitments) |
+
+> **Request vs response casing.** When creating transactions, send `layer` in lowercase (`settled`, `pending`, `encumbrance`) — the API rejects uppercase with a 422. Responses still come back uppercase, so the `TransactionLayer` enum cases (`Settled`, `Pending`, `Encumbrance`) match the response side. Don't pass `TransactionLayer::Settled->value` directly into a create payload.
 
 ### Transaction Status
 

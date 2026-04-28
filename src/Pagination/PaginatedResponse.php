@@ -41,9 +41,10 @@ final class PaginatedResponse
         $this->data = $items;
 
         $meta = $response['meta'] ?? [];
-        $this->nextCursor = $meta['next_cursor'] ?? null;
-        $this->prevCursor = $meta['prev_cursor'] ?? null;
-        $this->perPage = $meta['per_page'] ?? 25;
+        $pagination = is_array($meta['pagination'] ?? null) ? $meta['pagination'] : $meta;
+        $this->nextCursor = $pagination['next_cursor'] ?? null;
+        $this->prevCursor = $pagination['previous_cursor'] ?? $pagination['prev_cursor'] ?? null;
+        $this->perPage = $pagination['limit'] ?? $pagination['per_page'] ?? 25;
     }
 
     public function hasMore(): bool

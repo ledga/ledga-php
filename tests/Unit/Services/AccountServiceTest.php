@@ -23,13 +23,18 @@ final class AccountServiceTest extends TestCase
         $http->method('get')
             ->with('accounts', [])
             ->willReturn(new Response(200, [
+                'success' => true,
                 'data' => [
                     $this->accountData('1', '1000', 'Cash'),
                     $this->accountData('2', '1100', 'Bank'),
                 ],
                 'meta' => [
-                    'next_cursor' => 'cursor123',
-                    'per_page' => 25,
+                    'pagination' => [
+                        'limit' => 25,
+                        'has_more' => true,
+                        'next_cursor' => 'cursor123',
+                        'previous_cursor' => null,
+                    ],
                 ],
             ]));
 
@@ -40,6 +45,7 @@ final class AccountServiceTest extends TestCase
         $this->assertInstanceOf(Account::class, $result->data[0]);
         $this->assertSame('1000', $result->data[0]->code);
         $this->assertTrue($result->hasMore());
+        $this->assertSame('cursor123', $result->nextCursor);
     }
 
     #[Test]
@@ -247,6 +253,7 @@ final class AccountServiceTest extends TestCase
         $http->method('get')
             ->with('accounts/123/entries', [])
             ->willReturn(new Response(200, [
+                'success' => true,
                 'data' => [
                     [
                         'id' => 'entry-1',

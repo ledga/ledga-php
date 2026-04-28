@@ -91,6 +91,6 @@ final class TransactionCodeService extends AbstractService
     {
         $response = $this->http->post($this->basePath() . '/' . $id . '/execute', $params);
 
-        return Transaction::fromArray($this->unwrap($response));
+        return Transaction::fromArray($response->unwrap());
     }
 }

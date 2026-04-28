@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Ledga\Api\Services;
 
 use Ledga\Api\Http\HttpClientInterface;
-use Ledga\Api\Http\Response;
 use Ledga\Api\Pagination\CursorPaginator;
 use Ledga\Api\Pagination\PaginatedResponse;
 use Ledga\Api\Resources\ResourceInterface;
@@ -66,7 +65,7 @@ abstract class AbstractService
         $response = $this->http->get($path);
         $class = $this->resourceClass();
 
-        return $class::fromArray($this->unwrap($response));
+        return $class::fromArray($response->unwrap());
     }
 
     /**
@@ -78,7 +77,7 @@ abstract class AbstractService
         $response = $this->http->post($path, $data);
         $class = $this->resourceClass();
 
-        return $class::fromArray($this->unwrap($response));
+        return $class::fromArray($response->unwrap());
     }
 
     /**
@@ -90,30 +89,11 @@ abstract class AbstractService
         $response = $this->http->put($path, $data);
         $class = $this->resourceClass();
 
-        return $class::fromArray($this->unwrap($response));
+        return $class::fromArray($response->unwrap());
     }
 
     protected function deleteRequest(string $path): void
     {
         $this->http->delete($path);
-    }
-
-    /**
-     * Strip the top-level `{"data": {...}}` envelope used by single-resource endpoints.
-     * Falls through unchanged for already-flat or list-shaped payloads.
-     *
-     * @return array<string, mixed>
-     */
-    protected function unwrap(Response $response): array
-    {
-        $body = $response->data;
-
-        if (isset($body['data']) && is_array($body['data']) && !array_is_list($body['data'])) {
-            /** @var array<string, mixed> $payload */
-            $payload = $body['data'];
-            return $payload;
-        }
-
-        return $body;
     }
 }

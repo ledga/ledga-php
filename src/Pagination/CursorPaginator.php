@@ -52,7 +52,8 @@ final class CursorPaginator implements IteratorAggregate
             }
 
             $meta = $data['meta'] ?? [];
-            $cursor = $meta['next_cursor'] ?? null;
+            $pagination = is_array($meta['pagination'] ?? null) ? $meta['pagination'] : $meta;
+            $cursor = $pagination['next_cursor'] ?? null;
         } while ($cursor !== null);
     }
 

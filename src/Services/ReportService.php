@@ -23,7 +23,7 @@ final class ReportService
     {
         $response = $this->http->get('reports/trial-balance', $params);
 
-        return $response->data;
+        return $response->unwrap();
     }
 
     /**
@@ -36,7 +36,7 @@ final class ReportService
     {
         $response = $this->http->get('reports/balance-sheet', $params);
 
-        return $response->data;
+        return $response->unwrap();
     }
 
     /**
@@ -49,7 +49,7 @@ final class ReportService
     {
         $response = $this->http->get('reports/income-statement', $params);
 
-        return $response->data;
+        return $response->unwrap();
     }
 
     /**
@@ -62,6 +62,6 @@ final class ReportService
     {
         $response = $this->http->get('reports/general-ledger', $params);
 
-        return $response->data;
+        return $response->unwrap();
     }
 }
