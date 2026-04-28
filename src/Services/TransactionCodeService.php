@@ -6,7 +6,6 @@ namespace Ledga\Api\Services;
 
 use Ledga\Api\Pagination\CursorPaginator;
 use Ledga\Api\Pagination\PaginatedResponse;
-use Ledga\Api\Resources\Transaction;
 use Ledga\Api\Resources\TransactionCode;
 
 /**
@@ -67,30 +66,13 @@ final class TransactionCodeService extends AbstractService
     /**
      * Update a transaction code.
      *
+     * Full-replacement PUT — `name` and `entries_template` are required. The `code` and
+     * `status` fields are immutable post-creation and are silently ignored if sent.
+     *
      * @param array<string, mixed> $data Transaction code data to update
      */
     public function update(string $id, array $data): TransactionCode
     {
         return $this->updateRequest($this->basePath() . '/' . $id, $data);
-    }
-
-    /**
-     * Delete a transaction code.
-     */
-    public function delete(string $id): void
-    {
-        $this->deleteRequest($this->basePath() . '/' . $id);
-    }
-
-    /**
-     * Execute a transaction code with parameters.
-     *
-     * @param array<string, mixed> $params Parameters for the transaction code
-     */
-    public function execute(string $id, array $params): Transaction
-    {
-        $response = $this->http->post($this->basePath() . '/' . $id . '/execute', $params);
-
-        return Transaction::fromArray($response->unwrap());
     }
 }
