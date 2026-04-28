@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Ledga\Api\Http;
 
+use Ledga\Api\Exceptions\LedgaException;
+
 final readonly class Response
 {
     /**
@@ -34,20 +36,36 @@ final readonly class Response
     }
 
     /**
-     * Strip the uniform `{success, data, message?, meta?}` envelope used by every
-     * single-resource endpoint. Falls through unchanged for already-flat or
-     * list-shaped payloads (e.g. legacy fixtures, tests).
+     * Strip the uniform `{success, data, ...}` envelope and return the inner `data` map.
+     *
+     * Behaviour:
+     *  - `data` is an associative array → return it (the common single-resource case).
+     *  - `data` is a list (including `[]`) → return the full body unchanged so list / paginated callers keep `meta`.
+     *  - `data` key absent → return the full body unchanged (flat-shape back-compat for tests).
+     *  - `data` key present but not an array (null, scalar, etc.) → malformed response, throw.
      *
      * @return array<string, mixed>
+     * @throws LedgaException
      */
     public function unwrap(): array
     {
-        if (isset($this->data['data']) && is_array($this->data['data']) && !array_is_list($this->data['data'])) {
-            /** @var array<string, mixed> $payload */
-            $payload = $this->data['data'];
-            return $payload;
+        if (!array_key_exists('data', $this->data)) {
+            return $this->data;
         }
 
-        return $this->data;
+        $inner = $this->data['data'];
+
+        if (!is_array($inner)) {
+            throw new LedgaException(
+                'Malformed response: expected `data` envelope to be an array, got ' . gettype($inner),
+            );
+        }
+
+        if (array_is_list($inner)) {
+            return $this->data;
+        }
+
+        /** @var array<string, mixed> $inner */
+        return $inner;
     }
 }

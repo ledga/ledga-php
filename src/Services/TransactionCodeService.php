@@ -21,7 +21,7 @@ final class TransactionCodeService extends AbstractService
 
     protected function basePath(): string
     {
-        return 'transaction-codes';
+        return 'trancodes';
     }
 
     /**

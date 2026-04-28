@@ -59,7 +59,7 @@ final class AccountService extends AbstractService
     /**
      * Create a new account.
      *
-     * @param array<string, mixed> $data Account data (code, name, type required)
+     * @param array<string, mixed> $data Account data (code, name, type, category required)
      */
     public function create(array $data): Account
     {

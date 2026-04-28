@@ -20,7 +20,7 @@ final class TransactionServiceTest extends TestCase
         $http = $this->createMock(HttpClientInterface::class);
         $http->method('post')
             ->with('transactions', $this->anything())
-            ->willReturn(new Response(201, $this->transactionData()));
+            ->willReturn(new Response(201, ['data' => $this->transactionData()]));
 
         $service = new TransactionService($http);
         $transaction = $service->create([
@@ -45,14 +45,16 @@ final class TransactionServiceTest extends TestCase
                 'reason' => 'Customer refund',
                 'date' => '2025-01-02',
             ])
-            ->willReturn(new Response(201, array_merge(
-                $this->transactionData(),
-                [
-                    'id' => 'tx-456',
-                    'original_transaction_id' => 'tx-123',
-                    'reversal_reason' => 'Customer refund',
-                ]
-            )));
+            ->willReturn(new Response(201, [
+                'data' => array_merge(
+                    $this->transactionData(),
+                    [
+                        'id' => 'tx-456',
+                        'original_transaction_id' => 'tx-123',
+                        'reversal_reason' => 'Customer refund',
+                    ],
+                ),
+            ]));
 
         $service = new TransactionService($http);
         $reversal = $service->reverse('tx-123', [
@@ -93,28 +95,31 @@ final class TransactionServiceTest extends TestCase
                 ],
             ])
             ->willReturn(new Response(202, [
-                'results' => [
-                    [
-                        'idempotency_key' => 'tx-001',
-                        'status' => 'accepted',
-                        'id' => 'uuid-1',
-                        'correlation_id' => null,
-                        'error' => null,
-                        'error_code' => null,
+                'success' => true,
+                'data' => [
+                    'results' => [
+                        [
+                            'idempotency_key' => 'tx-001',
+                            'status' => 'accepted',
+                            'id' => 'uuid-1',
+                            'correlation_id' => null,
+                            'error' => null,
+                            'error_code' => null,
+                        ],
+                        [
+                            'idempotency_key' => 'tx-002',
+                            'status' => 'accepted',
+                            'id' => 'uuid-2',
+                            'correlation_id' => null,
+                            'error' => null,
+                            'error_code' => null,
+                        ],
                     ],
-                    [
-                        'idempotency_key' => 'tx-002',
-                        'status' => 'accepted',
-                        'id' => 'uuid-2',
-                        'correlation_id' => null,
-                        'error' => null,
-                        'error_code' => null,
+                    'summary' => [
+                        'total' => 2,
+                        'accepted' => 2,
+                        'rejected' => 0,
                     ],
-                ],
-                'summary' => [
-                    'total' => 2,
-                    'accepted' => 2,
-                    'rejected' => 0,
                 ],
             ]));
 
@@ -157,28 +162,31 @@ final class TransactionServiceTest extends TestCase
         $http = $this->createMock(HttpClientInterface::class);
         $http->method('post')
             ->willReturn(new Response(202, [
-                'results' => [
-                    [
-                        'idempotency_key' => 'tx-001',
-                        'status' => 'accepted',
-                        'id' => 'uuid-1',
-                        'correlation_id' => null,
-                        'error' => null,
-                        'error_code' => null,
+                'success' => true,
+                'data' => [
+                    'results' => [
+                        [
+                            'idempotency_key' => 'tx-001',
+                            'status' => 'accepted',
+                            'id' => 'uuid-1',
+                            'correlation_id' => null,
+                            'error' => null,
+                            'error_code' => null,
+                        ],
+                        [
+                            'idempotency_key' => 'tx-002',
+                            'status' => 'rejected',
+                            'id' => null,
+                            'correlation_id' => null,
+                            'error' => 'Transaction does not balance',
+                            'error_code' => 'UNBALANCED',
+                        ],
                     ],
-                    [
-                        'idempotency_key' => 'tx-002',
-                        'status' => 'rejected',
-                        'id' => null,
-                        'correlation_id' => null,
-                        'error' => 'Transaction does not balance',
-                        'error_code' => 'UNBALANCED',
+                    'summary' => [
+                        'total' => 2,
+                        'accepted' => 1,
+                        'rejected' => 1,
                     ],
-                ],
-                'summary' => [
-                    'total' => 2,
-                    'accepted' => 1,
-                    'rejected' => 1,
                 ],
             ]));
 

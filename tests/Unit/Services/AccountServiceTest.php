@@ -229,13 +229,16 @@ final class AccountServiceTest extends TestCase
         $http->method('get')
             ->with('accounts/123/balance-history', ['start_date' => '2025-01-01'])
             ->willReturn(new Response(200, [
-                'account' => ['id' => '123', 'code' => '1000', 'name' => 'Cash'],
-                'period' => ['start' => '2025-01-01', 'end' => '2025-01-31'],
-                'history' => [
-                    ['date' => '2025-01-01', 'balance' => '100.00'],
-                    ['date' => '2025-01-15', 'balance' => '500.00'],
+                'success' => true,
+                'data' => [
+                    'account' => ['id' => '123', 'code' => '1000', 'name' => 'Cash'],
+                    'period' => ['start' => '2025-01-01', 'end' => '2025-01-31'],
+                    'history' => [
+                        ['date' => '2025-01-01', 'balance' => '100.00'],
+                        ['date' => '2025-01-15', 'balance' => '500.00'],
+                    ],
+                    'ending_balance' => '500.00',
                 ],
-                'ending_balance' => '500.00',
             ]));
 
         $service = new AccountService($http);
@@ -287,8 +290,10 @@ final class AccountServiceTest extends TestCase
                 ],
                 'meta' => [
                     'pagination' => [
+                        'limit' => 25,
+                        'has_more' => false,
                         'next_cursor' => null,
-                        'per_page' => 25,
+                        'previous_cursor' => null,
                     ],
                 ],
             ]));

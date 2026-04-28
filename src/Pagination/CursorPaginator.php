@@ -51,9 +51,7 @@ final class CursorPaginator implements IteratorAggregate
                 yield $index++ => ($this->resourceClass)::fromArray($item);
             }
 
-            $meta = $data['meta'] ?? [];
-            $pagination = is_array($meta['pagination'] ?? null) ? $meta['pagination'] : $meta;
-            $cursor = $pagination['next_cursor'] ?? null;
+            $cursor = $data['meta']['pagination']['next_cursor'] ?? null;
         } while ($cursor !== null);
     }
 

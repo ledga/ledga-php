@@ -76,22 +76,6 @@ final class CursorPaginatorTest extends TestCase
         $this->assertSame('3', $accounts[2]->id);
     }
 
-    #[Test]
-    public function it_tolerates_a_legacy_flat_meta_shape(): void
-    {
-        $http = $this->createMock(HttpClientInterface::class);
-        $http->expects($this->once())
-            ->method('get')
-            ->willReturn(new Response(200, [
-                'data' => [$this->accountData('1')],
-                'meta' => ['next_cursor' => null],
-            ]));
-
-        $paginator = new CursorPaginator($http, 'accounts', [], Account::class);
-
-        $this->assertCount(1, $paginator->toArray());
-    }
-
     /**
      * @return array<string, mixed>
      */
