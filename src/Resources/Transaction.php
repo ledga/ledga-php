@@ -56,7 +56,7 @@ final readonly class Transaction implements ResourceInterface
             reference: $data['reference'] ?? null,
             description: $data['description'],
             effectiveDate: new DateTimeImmutable($data['effective_date'] ?? $data['date']),
-            layer: TransactionLayer::from($data['layer'] ?? 'SETTLED'),
+            layer: TransactionLayer::from($data['layer'] ?? 'settled'),
             status: TransactionStatus::from($data['status']),
             totalAmount: $data['total_amount'] ?? '0.00',
             entryCount: $data['entry_count'] ?? count($entries),

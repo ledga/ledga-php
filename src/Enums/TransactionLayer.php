@@ -6,7 +6,7 @@ namespace Ledga\Api\Enums;
 
 enum TransactionLayer: string
 {
-    case Settled = 'SETTLED';
-    case Pending = 'PENDING';
-    case Encumbrance = 'ENCUMBRANCE';
+    case Settled = 'settled';
+    case Pending = 'pending';
+    case Encumbrance = 'encumbrance';
 }

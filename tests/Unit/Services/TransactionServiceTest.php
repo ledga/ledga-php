@@ -314,7 +314,7 @@ final class TransactionServiceTest extends TestCase
             'reference' => 'REF-001',
             'description' => 'Payment received',
             'effective_date' => '2025-01-01T12:00:00Z',
-            'layer' => 'SETTLED',
+            'layer' => 'settled',
             'status' => 'posted',
             'total_amount' => '100.00',
             'entry_count' => 2,

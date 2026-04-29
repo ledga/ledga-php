@@ -46,7 +46,7 @@ final readonly class AccountEntry implements ResourceInterface
             type: EntryType::from($data['type']),
             amount: $data['amount'],
             description: $data['description'] ?? null,
-            layer: TransactionLayer::from($data['layer'] ?? 'SETTLED'),
+            layer: TransactionLayer::from($data['layer'] ?? 'settled'),
             effectiveDate: new DateTimeImmutable($data['effective_date']),
             balanceAfter: $data['balance_after'] ?? '0.00',
             transaction: $transaction,
