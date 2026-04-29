@@ -249,7 +249,7 @@ final class AccountServiceTest extends TestCase
                         'type' => 'debit',
                         'amount' => '100.00',
                         'description' => 'Payment received',
-                        'layer' => 'SETTLED',
+                        'layer' => 'settled',
                         'effective_date' => '2025-01-01',
                         'balance_after' => '100.00',
                         'transaction' => [
@@ -265,7 +265,7 @@ final class AccountServiceTest extends TestCase
                         'type' => 'debit',
                         'amount' => '50.00',
                         'description' => null,
-                        'layer' => 'SETTLED',
+                        'layer' => 'settled',
                         'effective_date' => '2025-01-02',
                         'balance_after' => '150.00',
                         'transaction' => null,

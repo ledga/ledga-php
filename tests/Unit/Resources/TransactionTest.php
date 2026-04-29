@@ -23,7 +23,7 @@ final class TransactionTest extends TestCase
             'reference' => 'INV-001',
             'description' => 'Payment received',
             'effective_date' => '2025-01-01T12:00:00Z',
-            'layer' => 'SETTLED',
+            'layer' => 'settled',
             'status' => 'posted',
             'total_amount' => '100.00',
             'entry_count' => 2,
@@ -42,7 +42,7 @@ final class TransactionTest extends TestCase
                     'amount' => '100.00',
                     'type' => 'debit',
                     'description' => null,
-                    'layer' => 'SETTLED',
+                    'layer' => 'settled',
                 ],
                 [
                     'id' => 'entry-2',
@@ -52,7 +52,7 @@ final class TransactionTest extends TestCase
                     'amount' => '100.00',
                     'type' => 'credit',
                     'description' => null,
-                    'layer' => 'SETTLED',
+                    'layer' => 'settled',
                 ],
             ],
             'created_at' => '2025-01-01T12:00:00Z',
@@ -79,6 +79,7 @@ final class TransactionTest extends TestCase
             'ledger_id' => '123e4567-e89b-12d3-a456-426614174001',
             'description' => 'Test',
             'date' => '2025-01-01T12:00:00Z',
+            'layer' => 'settled',
             'status' => 'pending',
             'created_at' => '2025-01-01T12:00:00Z',
             'updated_at' => '2025-01-01T12:00:00Z',
@@ -87,5 +88,25 @@ final class TransactionTest extends TestCase
         $transaction = Transaction::fromArray($data);
 
         $this->assertSame('2025-01-01', $transaction->effectiveDate->format('Y-m-d'));
+    }
+
+    #[Test]
+    public function it_throws_value_error_on_unknown_layer(): void
+    {
+        $data = [
+            'id' => '123e4567-e89b-12d3-a456-426614174000',
+            'ledger_id' => '123e4567-e89b-12d3-a456-426614174001',
+            'description' => 'Test',
+            'effective_date' => '2025-01-01T12:00:00Z',
+            'layer' => 'archived',
+            'status' => 'posted',
+            'created_at' => '2025-01-01T12:00:00Z',
+            'updated_at' => '2025-01-01T12:00:00Z',
+        ];
+
+        $this->expectException(\ValueError::class);
+        $this->expectExceptionMessage('"archived" is not a valid backing value');
+
+        Transaction::fromArray($data);
     }
 }

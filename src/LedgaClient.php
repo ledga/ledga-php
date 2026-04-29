@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Ledga\Api;
 
+use Composer\InstalledVersions;
 use Ledga\Api\Http\GuzzleHttpClient;
 use Ledga\Api\Http\HttpClientInterface;
 use Ledga\Api\Services\AccountService;
@@ -49,13 +50,17 @@ final class LedgaClient
     }
 
     /**
-     * Get the SDK version.
+     * Get the installed SDK version.
      *
-     * Tracks the next anticipated release tag. Bump when cutting a release.
+     * Resolved from Composer's installed-package metadata. For released installs this
+     * returns the tag (e.g. `v0.3.0`); for branch installs it returns the alias
+     * Composer reports (e.g. `dev-master`). The `'dev'` fallback covers the rare path-
+     * repo case where the package is installed but Composer has no version info to
+     * report.
      */
     public static function version(): string
     {
-        return '0.3.0-dev';
+        return InstalledVersions::getPrettyVersion('ledga/ledga-php') ?? 'dev';
     }
 
     /**

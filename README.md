@@ -405,11 +405,11 @@ try {
 
 | Layer | Description |
 |-------|-------------|
-| `SETTLED` | Finalized transactions |
-| `PENDING` | Transactions awaiting settlement |
-| `ENCUMBRANCE` | Reserved funds (holds, commitments) |
+| `settled` | Finalized transactions |
+| `pending` | Transactions awaiting settlement |
+| `encumbrance` | Reserved funds (holds, commitments) |
 
-> **Request vs response casing.** When creating transactions, send `layer` in lowercase (`settled`, `pending`, `encumbrance`) — the API rejects uppercase with a 422. Responses still come back uppercase, so the `TransactionLayer` enum cases (`Settled`, `Pending`, `Encumbrance`) match the response side. Don't pass `TransactionLayer::Settled->value` directly into a create payload.
+The wire format is canonical lowercase on both sides. The API normalises any casing on request (`Settled`, `SETTLED`, `settled` all accepted), so passing `TransactionLayer::Settled->value` directly into a create payload works as expected. Responses always render the canonical lowercase form.
 
 ### Transaction Status
 

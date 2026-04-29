@@ -52,8 +52,10 @@ final class LedgaClientTest extends TestCase
     }
 
     #[Test]
-    public function it_returns_version(): void
+    public function it_returns_the_installed_composer_version(): void
     {
-        $this->assertSame('0.3.0-dev', LedgaClient::version());
+        $expected = \Composer\InstalledVersions::getPrettyVersion('ledga/ledga-php') ?? 'dev';
+
+        $this->assertSame($expected, LedgaClient::version());
     }
 }
