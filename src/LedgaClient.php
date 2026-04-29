@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Ledga\Api;
 
+use Composer\InstalledVersions;
 use Ledga\Api\Http\GuzzleHttpClient;
 use Ledga\Api\Http\HttpClientInterface;
 use Ledga\Api\Services\AccountService;
@@ -49,13 +50,16 @@ final class LedgaClient
     }
 
     /**
-     * Get the SDK version.
+     * Get the installed SDK version.
      *
-     * Tracks the next anticipated release tag. Bump when cutting a release.
+     * Resolved from Composer's installed-package metadata so the value is always in
+     * sync with the actual release. Returns `'dev'` only when running from a source
+     * checkout that hasn't been registered with Composer (e.g. raw require without
+     * `composer install`).
      */
     public static function version(): string
     {
-        return '0.3.0-dev';
+        return InstalledVersions::getPrettyVersion('ledga/ledga-php') ?? 'dev';
     }
 
     /**
