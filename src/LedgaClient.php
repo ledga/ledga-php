@@ -52,10 +52,11 @@ final class LedgaClient
     /**
      * Get the installed SDK version.
      *
-     * Resolved from Composer's installed-package metadata so the value is always in
-     * sync with the actual release. Returns `'dev'` only when running from a source
-     * checkout that hasn't been registered with Composer (e.g. raw require without
-     * `composer install`).
+     * Resolved from Composer's installed-package metadata. For released installs this
+     * returns the tag (e.g. `v0.3.0`); for branch installs it returns the alias
+     * Composer reports (e.g. `dev-master`). The `'dev'` fallback covers the rare path-
+     * repo case where the package is installed but Composer has no version info to
+     * report.
      */
     public static function version(): string
     {

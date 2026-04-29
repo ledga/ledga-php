@@ -34,7 +34,7 @@ final readonly class Entry implements ResourceInterface
             amount: $data['amount'],
             type: EntryType::from($data['type']),
             description: $data['description'] ?? null,
-            layer: TransactionLayer::from($data['layer'] ?? 'settled'),
+            layer: TransactionLayer::from($data['layer']),
         );
     }
 }
