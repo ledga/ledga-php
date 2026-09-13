@@ -9,6 +9,7 @@ use Ledga\Api\Http\HttpClientInterface;
 use Ledga\Api\Http\Response;
 use Ledga\Api\Resources\Account;
 use Ledga\Api\Resources\AccountSet;
+use Ledga\Api\Resources\AccountSetBalance;
 use Ledga\Api\Resources\AccountSetMember;
 use Ledga\Api\Services\AccountSetService;
 use PHPUnit\Framework\Attributes\Test;
@@ -143,6 +144,33 @@ final class AccountSetServiceTest extends TestCase
         $service = new AccountSetService($http);
 
         $this->assertSame([], $service->getAccounts('as-1'));
+    }
+
+    #[Test]
+    public function it_gets_aggregate_balance_for_set(): void
+    {
+        $http = $this->createMock(HttpClientInterface::class);
+        $http->method('get')
+            ->with('account-sets/as-1/balance')
+            ->willReturn(new Response(200, ['data' => [
+                'account_set_id' => 'as-1',
+                'account_set_code' => 'OPEX',
+                'account_set_name' => 'Operating Expenses',
+                'total_balance' => '1234.56',
+                'currency' => 'GBP',
+                'account_count' => 3,
+            ]]));
+
+        $service = new AccountSetService($http);
+        $balance = $service->getBalance('as-1');
+
+        $this->assertInstanceOf(AccountSetBalance::class, $balance);
+        $this->assertSame('as-1', $balance->accountSetId);
+        $this->assertSame('OPEX', $balance->accountSetCode);
+        $this->assertSame('Operating Expenses', $balance->accountSetName);
+        $this->assertSame('1234.56', $balance->totalBalance);
+        $this->assertSame('GBP', $balance->currency);
+        $this->assertSame(3, $balance->accountCount);
     }
 
     /**

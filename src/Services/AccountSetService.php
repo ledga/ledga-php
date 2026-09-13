@@ -9,6 +9,7 @@ use Ledga\Api\Pagination\CursorPaginator;
 use Ledga\Api\Pagination\PaginatedResponse;
 use Ledga\Api\Resources\Account;
 use Ledga\Api\Resources\AccountSet;
+use Ledga\Api\Resources\AccountSetBalance;
 use Ledga\Api\Resources\AccountSetMember;
 
 /**
@@ -125,5 +126,15 @@ final class AccountSetService extends AbstractService
         $items = $response->unwrap()['data'];
 
         return array_map(static fn (array $item): Account => Account::fromArray($item), $items);
+    }
+
+    /**
+     * Get the aggregate balance across every account in this set, recursing through nested sets.
+     */
+    public function getBalance(string $id): AccountSetBalance
+    {
+        $response = $this->http->get($this->basePath() . '/' . $id . '/balance');
+
+        return AccountSetBalance::fromArray($response->unwrap());
     }
 }
