@@ -286,6 +286,23 @@ $set = $ledga->accountSets->create([
 
 // List account sets
 $sets = $ledga->accountSets->list();
+
+// Add members — accounts, or other sets (sets can nest)
+use Ledga\Api\Enums\AccountSetMemberType;
+
+$ledga->accountSets->addMember($set->id, AccountSetMemberType::Account, $rentAccount->id);
+$ledga->accountSets->addMember($set->id, AccountSetMemberType::AccountSet, $payrollSet->id);
+
+// Remove a member
+$ledga->accountSets->removeMember($set->id, AccountSetMemberType::Account, $rentAccount->id);
+
+// Every account in the set, recursing through nested sets (flat list, not paginated)
+$accounts = $ledga->accountSets->getAccounts($set->id);
+
+// Aggregate balance across all member accounts
+$balance = $ledga->accountSets->getBalance($set->id);
+echo $balance->totalBalance;  // "1234.56"
+echo $balance->accountCount;  // 3
 ```
 
 ### Reports
