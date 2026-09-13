@@ -7,7 +7,7 @@ The official PHP SDK for the [Ledga.io](https://ledga.io) API. Ledga provides pr
 
 ## Requirements
 
-- PHP 8.1 or later
+- PHP 8.2 or later
 - Composer
 - Guzzle HTTP client (installed automatically)
 
