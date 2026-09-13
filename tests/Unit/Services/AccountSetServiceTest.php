@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Ledga\Api\Tests\Unit\Services;
 
+use Ledga\Api\Enums\AccountSetMemberType;
 use Ledga\Api\Http\HttpClientInterface;
 use Ledga\Api\Http\Response;
 use Ledga\Api\Resources\AccountSet;
+use Ledga\Api\Resources\AccountSetMember;
 use Ledga\Api\Services\AccountSetService;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -54,6 +56,39 @@ final class AccountSetServiceTest extends TestCase
         $set = $service->update('as-1', ['name' => 'Renamed']);
 
         $this->assertSame('Renamed', $set->name);
+    }
+
+    #[Test]
+    public function it_adds_account_member_to_set(): void
+    {
+        $http = $this->createMock(HttpClientInterface::class);
+        $http->expects($this->once())
+            ->method('post')
+            ->with('account-sets/as-1/members', ['member_type' => 'account', 'member_id' => 'acc-1'])
+            ->willReturn(new Response(200, ['data' => ['member_type' => 'account', 'member_id' => 'acc-1']]));
+
+        $service = new AccountSetService($http);
+        $member = $service->addMember('as-1', AccountSetMemberType::Account, 'acc-1');
+
+        $this->assertInstanceOf(AccountSetMember::class, $member);
+        $this->assertSame(AccountSetMemberType::Account, $member->memberType);
+        $this->assertSame('acc-1', $member->memberId);
+    }
+
+    #[Test]
+    public function it_adds_nested_set_member_to_set(): void
+    {
+        $http = $this->createMock(HttpClientInterface::class);
+        $http->expects($this->once())
+            ->method('post')
+            ->with('account-sets/as-1/members', ['member_type' => 'account_set', 'member_id' => 'as-2'])
+            ->willReturn(new Response(200, ['data' => ['member_type' => 'account_set', 'member_id' => 'as-2']]));
+
+        $service = new AccountSetService($http);
+        $member = $service->addMember('as-1', AccountSetMemberType::AccountSet, 'as-2');
+
+        $this->assertSame(AccountSetMemberType::AccountSet, $member->memberType);
+        $this->assertSame('as-2', $member->memberId);
     }
 
     /**

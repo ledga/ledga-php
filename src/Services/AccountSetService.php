@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Ledga\Api\Services;
 
+use Ledga\Api\Enums\AccountSetMemberType;
 use Ledga\Api\Pagination\CursorPaginator;
 use Ledga\Api\Pagination\PaginatedResponse;
 use Ledga\Api\Resources\AccountSet;
+use Ledga\Api\Resources\AccountSetMember;
 
 /**
  * @extends AbstractService<AccountSet>
@@ -79,5 +81,18 @@ final class AccountSetService extends AbstractService
     public function delete(string $id): void
     {
         $this->deleteRequest($this->basePath() . '/' . $id);
+    }
+
+    /**
+     * Add an account or a nested account set as a member of this set.
+     */
+    public function addMember(string $id, AccountSetMemberType $memberType, string $memberId): AccountSetMember
+    {
+        $response = $this->http->post(
+            $this->basePath() . '/' . $id . '/members',
+            ['member_type' => $memberType->value, 'member_id' => $memberId],
+        );
+
+        return AccountSetMember::fromArray($response->unwrap());
     }
 }
