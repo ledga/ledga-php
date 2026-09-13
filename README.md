@@ -3,6 +3,8 @@
 
 # Ledga PHP SDK
 
+[![CI](https://github.com/ledga/ledga-php/actions/workflows/ci.yml/badge.svg)](https://github.com/ledga/ledga-php/actions/workflows/ci.yml)
+
 The official PHP SDK for the [Ledga.io](https://ledga.io) API. Ledga provides programmatic double-entry ledgers for finance, gaming, and multi-tenant SaaS applications.
 
 ## Requirements
