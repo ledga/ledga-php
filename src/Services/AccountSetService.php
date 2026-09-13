@@ -7,6 +7,7 @@ namespace Ledga\Api\Services;
 use Ledga\Api\Enums\AccountSetMemberType;
 use Ledga\Api\Pagination\CursorPaginator;
 use Ledga\Api\Pagination\PaginatedResponse;
+use Ledga\Api\Resources\Account;
 use Ledga\Api\Resources\AccountSet;
 use Ledga\Api\Resources\AccountSetMember;
 
@@ -107,5 +108,22 @@ final class AccountSetService extends AbstractService
         );
 
         return AccountSetMember::fromArray($response->unwrap());
+    }
+
+    /**
+     * Get every account in this set, recursing through nested sets.
+     *
+     * The API returns a flat, unpaginated list.
+     *
+     * @return list<Account>
+     */
+    public function getAccounts(string $id): array
+    {
+        $response = $this->http->get($this->basePath() . '/' . $id . '/accounts');
+
+        /** @var list<array<string, mixed>> $items */
+        $items = $response->unwrap()['data'];
+
+        return array_map(static fn (array $item): Account => Account::fromArray($item), $items);
     }
 }

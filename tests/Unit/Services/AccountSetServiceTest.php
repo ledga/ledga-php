@@ -7,6 +7,7 @@ namespace Ledga\Api\Tests\Unit\Services;
 use Ledga\Api\Enums\AccountSetMemberType;
 use Ledga\Api\Http\HttpClientInterface;
 use Ledga\Api\Http\Response;
+use Ledga\Api\Resources\Account;
 use Ledga\Api\Resources\AccountSet;
 use Ledga\Api\Resources\AccountSetMember;
 use Ledga\Api\Services\AccountSetService;
@@ -108,6 +109,42 @@ final class AccountSetServiceTest extends TestCase
         $this->assertSame('acc-1', $member->memberId);
     }
 
+    #[Test]
+    public function it_gets_all_accounts_in_set_as_flat_list(): void
+    {
+        $http = $this->createMock(HttpClientInterface::class);
+        $http->method('get')
+            ->with('account-sets/as-1/accounts')
+            ->willReturn(new Response(200, [
+                'success' => true,
+                'data' => [
+                    $this->accountData('acc-1', '5000', 'Rent'),
+                    $this->accountData('acc-2', '5100', 'Utilities'),
+                ],
+            ]));
+
+        $service = new AccountSetService($http);
+        $accounts = $service->getAccounts('as-1');
+
+        $this->assertCount(2, $accounts);
+        $this->assertContainsOnlyInstancesOf(Account::class, $accounts);
+        $this->assertSame('5000', $accounts[0]->code);
+        $this->assertSame('Utilities', $accounts[1]->name);
+    }
+
+    #[Test]
+    public function it_returns_empty_list_for_set_with_no_accounts(): void
+    {
+        $http = $this->createMock(HttpClientInterface::class);
+        $http->method('get')
+            ->with('account-sets/as-1/accounts')
+            ->willReturn(new Response(200, ['success' => true, 'data' => []]));
+
+        $service = new AccountSetService($http);
+
+        $this->assertSame([], $service->getAccounts('as-1'));
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -120,6 +157,27 @@ final class AccountSetServiceTest extends TestCase
             'name' => $name,
             'description' => null,
             'metadata' => null,
+            'created_at' => '2025-01-01T12:00:00Z',
+            'updated_at' => '2025-01-01T12:00:00Z',
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function accountData(string $id, string $code, string $name): array
+    {
+        return [
+            'id' => $id,
+            'ledger_id' => 'ledger-1',
+            'code' => $code,
+            'name' => $name,
+            'type' => 'expense',
+            'normal_balance' => 'debit',
+            'category' => 'system',
+            'balance' => '0.00',
+            'is_active' => true,
+            'is_system' => false,
             'created_at' => '2025-01-01T12:00:00Z',
             'updated_at' => '2025-01-01T12:00:00Z',
         ];
