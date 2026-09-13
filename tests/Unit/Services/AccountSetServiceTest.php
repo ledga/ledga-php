@@ -91,6 +91,23 @@ final class AccountSetServiceTest extends TestCase
         $this->assertSame('as-2', $member->memberId);
     }
 
+    #[Test]
+    public function it_removes_member_from_set_via_delete_body(): void
+    {
+        $http = $this->createMock(HttpClientInterface::class);
+        $http->expects($this->once())
+            ->method('delete')
+            ->with('account-sets/as-1/members', ['member_type' => 'account', 'member_id' => 'acc-1'])
+            ->willReturn(new Response(200, ['data' => ['member_type' => 'account', 'member_id' => 'acc-1']]));
+
+        $service = new AccountSetService($http);
+        $member = $service->removeMember('as-1', AccountSetMemberType::Account, 'acc-1');
+
+        $this->assertInstanceOf(AccountSetMember::class, $member);
+        $this->assertSame(AccountSetMemberType::Account, $member->memberType);
+        $this->assertSame('acc-1', $member->memberId);
+    }
+
     /**
      * @return array<string, mixed>
      */

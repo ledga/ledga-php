@@ -95,4 +95,17 @@ final class AccountSetService extends AbstractService
 
         return AccountSetMember::fromArray($response->unwrap());
     }
+
+    /**
+     * Remove an account or a nested account set from this set.
+     */
+    public function removeMember(string $id, AccountSetMemberType $memberType, string $memberId): AccountSetMember
+    {
+        $response = $this->http->delete(
+            $this->basePath() . '/' . $id . '/members',
+            ['member_type' => $memberType->value, 'member_id' => $memberId],
+        );
+
+        return AccountSetMember::fromArray($response->unwrap());
+    }
 }
