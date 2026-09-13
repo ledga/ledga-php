@@ -52,6 +52,41 @@ final class GuzzleHttpClientTest extends TestCase
     }
 
     #[Test]
+    public function it_sends_json_body_on_delete_when_data_given(): void
+    {
+        $mock = new MockHandler([
+            new Response(200, [], json_encode(['data' => ['member_id' => 'acc-1']])),
+        ]);
+
+        $client = $this->createClient($mock);
+        $client->delete('account-sets/as-1/members', ['member_type' => 'account', 'member_id' => 'acc-1']);
+
+        $request = $mock->getLastRequest();
+        $this->assertNotNull($request);
+        $this->assertSame('DELETE', $request->getMethod());
+        $this->assertSame('application/json', $request->getHeaderLine('Content-Type'));
+        $this->assertSame(
+            ['member_type' => 'account', 'member_id' => 'acc-1'],
+            json_decode((string) $request->getBody(), true),
+        );
+    }
+
+    #[Test]
+    public function it_sends_no_body_on_delete_without_data(): void
+    {
+        $mock = new MockHandler([
+            new Response(200, [], json_encode(['data' => ['id' => 'acc-1']])),
+        ]);
+
+        $client = $this->createClient($mock);
+        $client->delete('accounts/acc-1');
+
+        $request = $mock->getLastRequest();
+        $this->assertNotNull($request);
+        $this->assertSame('', (string) $request->getBody());
+    }
+
+    #[Test]
     public function it_throws_authentication_exception_on_401(): void
     {
         $mock = new MockHandler([
