@@ -21,5 +21,8 @@ interface HttpClientInterface
      */
     public function put(string $path, array $data = []): Response;
 
-    public function delete(string $path): Response;
+    /**
+     * @param array<string, mixed> $data Optional JSON body (some endpoints, e.g. member removal, take one)
+     */
+    public function delete(string $path, array $data = []): Response;
 }

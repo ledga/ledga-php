@@ -61,9 +61,12 @@ final class GuzzleHttpClient implements HttpClientInterface
         return $this->request('PUT', $path, ['json' => $data]);
     }
 
-    public function delete(string $path): Response
+    /**
+     * @param array<string, mixed> $data
+     */
+    public function delete(string $path, array $data = []): Response
     {
-        return $this->request('DELETE', $path);
+        return $this->request('DELETE', $path, $data === [] ? [] : ['json' => $data]);
     }
 
     /**

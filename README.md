@@ -3,11 +3,13 @@
 
 # Ledga PHP SDK
 
+[![CI](https://github.com/ledga/ledga-php/actions/workflows/ci.yml/badge.svg)](https://github.com/ledga/ledga-php/actions/workflows/ci.yml)
+
 The official PHP SDK for the [Ledga.io](https://ledga.io) API. Ledga provides programmatic double-entry ledgers for finance, gaming, and multi-tenant SaaS applications.
 
 ## Requirements
 
-- PHP 8.1 or later
+- PHP 8.2 or later
 - Composer
 - Guzzle HTTP client (installed automatically)
 
@@ -277,15 +279,61 @@ $journals = $ledga->journals->list();
 
 ### Account Sets
 
+Account sets group accounts for reporting. A set can contain accounts or other sets, so hierarchies nest.
+
 ```php
-// Create an account set for reporting
+use Ledga\Api\Enums\AccountSetMemberType;
+
+// List account sets (manual pagination)
+$sets = $ledga->accountSets->list(['search' => 'expense']);
+foreach ($sets->data as $set) {
+    echo $set->code . ': ' . $set->name . "\n";
+}
+
+// Auto-pagination (iterate through all pages)
+foreach ($ledga->accountSets->all() as $set) {
+    echo $set->code . "\n";
+}
+
+// Get a single account set
+$set = $ledga->accountSets->get('set-uuid');
+
+// Create an account set
 $set = $ledga->accountSets->create([
     'code' => 'OPERATING_EXPENSES',
     'name' => 'Operating Expenses',
+    'description' => 'All recurring operating costs',  // optional
 ]);
 
-// List account sets
-$sets = $ledga->accountSets->list();
+// Update an account set
+$set = $ledga->accountSets->update('set-uuid', [
+    'name' => 'Operating Expenses (Group)',
+]);
+
+// Delete an account set
+$ledga->accountSets->delete('set-uuid');
+
+// Add members — an account, or another set (sets can nest)
+$member = $ledga->accountSets->addMember('set-uuid', AccountSetMemberType::Account, 'account-uuid');
+$member = $ledga->accountSets->addMember('set-uuid', AccountSetMemberType::AccountSet, 'child-set-uuid');
+echo $member->memberType->value;  // "account_set"
+echo $member->memberId;           // "child-set-uuid"
+
+// Remove a member
+$ledga->accountSets->removeMember('set-uuid', AccountSetMemberType::Account, 'account-uuid');
+
+// Every account in the set, recursing through nested sets.
+// Returns a flat list<Account> — not paginated.
+$accounts = $ledga->accountSets->getAccounts('set-uuid');
+foreach ($accounts as $account) {
+    echo $account->code . ': ' . $account->balance . "\n";
+}
+
+// Aggregate balance across all member accounts (nested sets included)
+$balance = $ledga->accountSets->getBalance('set-uuid');
+echo $balance->totalBalance;  // "1234.56" (major units, as a string)
+echo $balance->currency;      // "GBP"
+echo $balance->accountCount;  // 3
 ```
 
 ### Reports

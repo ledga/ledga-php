@@ -4,9 +4,13 @@ declare(strict_types=1);
 
 namespace Ledga\Api\Services;
 
+use Ledga\Api\Enums\AccountSetMemberType;
 use Ledga\Api\Pagination\CursorPaginator;
 use Ledga\Api\Pagination\PaginatedResponse;
+use Ledga\Api\Resources\Account;
 use Ledga\Api\Resources\AccountSet;
+use Ledga\Api\Resources\AccountSetBalance;
+use Ledga\Api\Resources\AccountSetMember;
 
 /**
  * @extends AbstractService<AccountSet>
@@ -79,5 +83,58 @@ final class AccountSetService extends AbstractService
     public function delete(string $id): void
     {
         $this->deleteRequest($this->basePath() . '/' . $id);
+    }
+
+    /**
+     * Add an account or a nested account set as a member of this set.
+     */
+    public function addMember(string $id, AccountSetMemberType $memberType, string $memberId): AccountSetMember
+    {
+        $response = $this->http->post(
+            $this->basePath() . '/' . $id . '/members',
+            ['member_type' => $memberType->value, 'member_id' => $memberId],
+        );
+
+        return AccountSetMember::fromArray($response->unwrap());
+    }
+
+    /**
+     * Remove an account or a nested account set from this set.
+     */
+    public function removeMember(string $id, AccountSetMemberType $memberType, string $memberId): AccountSetMember
+    {
+        $response = $this->http->delete(
+            $this->basePath() . '/' . $id . '/members',
+            ['member_type' => $memberType->value, 'member_id' => $memberId],
+        );
+
+        return AccountSetMember::fromArray($response->unwrap());
+    }
+
+    /**
+     * Get every account in this set, recursing through nested sets.
+     *
+     * The API returns a flat, unpaginated list.
+     *
+     * @return list<Account>
+     */
+    public function getAccounts(string $id): array
+    {
+        $response = $this->http->get($this->basePath() . '/' . $id . '/accounts');
+
+        /** @var list<array<string, mixed>> $items */
+        $items = $response->unwrap()['data'];
+
+        return array_map(static fn (array $item): Account => Account::fromArray($item), $items);
+    }
+
+    /**
+     * Get the aggregate balance across every account in this set, recursing through nested sets.
+     */
+    public function getBalance(string $id): AccountSetBalance
+    {
+        $response = $this->http->get($this->basePath() . '/' . $id . '/balance');
+
+        return AccountSetBalance::fromArray($response->unwrap());
     }
 }
