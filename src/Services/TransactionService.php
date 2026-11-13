@@ -48,6 +48,54 @@ final class TransactionService extends AbstractService
     }
 
     /**
+     * List a correlation trail with manual pagination.
+     *
+     * Calls `GET /transactions/correlation`, which returns every transaction in the
+     * ledger with this correlation handle, in posting order (`created_at` ascending).
+     * `list(['correlation_id' => …])` filters the same way but orders by
+     * `effective_date` descending.
+     *
+     * The handle is a `correlation_id` the transactions were given, or the id of a
+     * transaction given none: the `correlationId` of its {@see TransactionAcknowledgement}
+     * always finds it. It is sent as a query parameter, so any value, including `/`,
+     * `%` or spaces, round-trips. An unknown handle, or one from another ledger,
+     * returns an empty page, not a 404. A handle over 50 characters, not valid
+     * UTF-8, or holding a NUL is a 422.
+     *
+     * @param string               $correlationId The correlation handle
+     * @param array<string, mixed> $params        `limit`, `cursor`. A `correlation_id`
+     *                                            key here is ignored in favour of
+     *                                            $correlationId.
+     * @return PaginatedResponse<Transaction>
+     */
+    public function byCorrelation(string $correlationId, array $params = []): PaginatedResponse
+    {
+        return $this->listRequest(
+            $this->basePath() . '/correlation',
+            array_merge($params, ['correlation_id' => $correlationId]),
+        );
+    }
+
+    /**
+     * Iterate through a whole correlation trail with auto-pagination.
+     *
+     * Same endpoint, order and rules as {@see self::byCorrelation()}.
+     *
+     * @param string               $correlationId The correlation handle
+     * @param array<string, mixed> $params        `limit` per page. A `correlation_id`
+     *                                            key here is ignored in favour of
+     *                                            $correlationId.
+     * @return CursorPaginator<Transaction>
+     */
+    public function allByCorrelation(string $correlationId, array $params = []): CursorPaginator
+    {
+        return $this->allRequest(
+            $this->basePath() . '/correlation',
+            array_merge($params, ['correlation_id' => $correlationId]),
+        );
+    }
+
+    /**
      * Get a specific transaction.
      */
     public function get(string $id): Transaction
