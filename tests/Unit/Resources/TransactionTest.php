@@ -72,6 +72,63 @@ final class TransactionTest extends TestCase
     }
 
     #[Test]
+    public function it_reads_correlation_link_and_void_fields(): void
+    {
+        $transaction = Transaction::fromArray(array_merge($this->minimalData(), [
+            'status' => 'void',
+            'correlation_id' => 'SCHED-2026',
+            'correlation_source_id' => '018f0000-0000-7000-8000-0000000000a1',
+            'correlation_type' => 'reschedule',
+            'voided_by' => ['type' => 'api_key', 'id' => '9a0e8400-e29b-41d4-a716-446655440009'],
+            'voided_at' => '2026-06-19T10:00:00+00:00',
+            'void_reason' => 'rescheduled',
+        ]));
+
+        $this->assertSame(TransactionStatus::Void, $transaction->status);
+        $this->assertSame('SCHED-2026', $transaction->correlationId);
+        $this->assertSame('018f0000-0000-7000-8000-0000000000a1', $transaction->correlationSourceId);
+        $this->assertSame('reschedule', $transaction->correlationType);
+        $this->assertSame(
+            ['type' => 'api_key', 'id' => '9a0e8400-e29b-41d4-a716-446655440009'],
+            $transaction->voidedBy,
+        );
+        $this->assertNotNull($transaction->voidedAt);
+        $this->assertSame('2026-06-19T10:00:00+00:00', $transaction->voidedAt->format(DATE_ATOM));
+        $this->assertSame('rescheduled', $transaction->voidReason);
+    }
+
+    #[Test]
+    public function it_reads_null_link_and_void_fields_as_null(): void
+    {
+        $transaction = Transaction::fromArray(array_merge($this->minimalData(), [
+            'correlation_source_id' => null,
+            'correlation_type' => null,
+            'voided_by' => null,
+            'voided_at' => null,
+            'void_reason' => null,
+        ]));
+
+        $this->assertNull($transaction->correlationSourceId);
+        $this->assertNull($transaction->correlationType);
+        $this->assertNull($transaction->voidedBy);
+        $this->assertNull($transaction->voidedAt);
+        $this->assertNull($transaction->voidReason);
+    }
+
+    #[Test]
+    public function it_parses_a_payload_without_link_and_void_fields(): void
+    {
+        // An older server omits the fields entirely.
+        $transaction = Transaction::fromArray($this->minimalData());
+
+        $this->assertNull($transaction->correlationSourceId);
+        $this->assertNull($transaction->correlationType);
+        $this->assertNull($transaction->voidedBy);
+        $this->assertNull($transaction->voidedAt);
+        $this->assertNull($transaction->voidReason);
+    }
+
+    #[Test]
     public function it_handles_date_field_alias(): void
     {
         $data = [
@@ -108,5 +165,22 @@ final class TransactionTest extends TestCase
         $this->expectExceptionMessage('"archived" is not a valid backing value');
 
         Transaction::fromArray($data);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function minimalData(): array
+    {
+        return [
+            'id' => '123e4567-e89b-12d3-a456-426614174000',
+            'ledger_id' => '123e4567-e89b-12d3-a456-426614174001',
+            'description' => 'Test',
+            'effective_date' => '2025-01-01T12:00:00Z',
+            'layer' => 'encumbrance',
+            'status' => 'posted',
+            'created_at' => '2025-01-01T12:00:00Z',
+            'updated_at' => '2025-01-01T12:00:00Z',
+        ];
     }
 }
