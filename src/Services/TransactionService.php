@@ -174,6 +174,25 @@ final class TransactionService extends AbstractService
     }
 
     /**
+     * Void a posted transaction.
+     *
+     * Sets `status` to `void` and records `voided_at`, `voided_by` and `void_reason`.
+     * No contra transaction is posted, and entries are untouched. Voiding a reversal's
+     * contra puts its original back to `posted`. A transaction that is not `posted` is a
+     * 409 (`TRANSACTION_NOT_VOIDABLE`); one dated in a closed period is a 409
+     * (`PERIOD_LOCKED`).
+     *
+     * @param array<string, mixed> $data Optional `reason` (string, max 255), stored as
+     *                                   `void_reason`.
+     */
+    public function void(string $id, array $data = []): Transaction
+    {
+        $response = $this->http->post($this->basePath() . '/' . $id . '/void', $data);
+
+        return Transaction::fromArray($response->unwrap());
+    }
+
+    /**
      * Create multiple transactions in a batch.
      *
      * Each transaction is processed independently, supporting partial success.

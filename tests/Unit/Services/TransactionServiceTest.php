@@ -305,6 +305,52 @@ final class TransactionServiceTest extends TestCase
     }
 
     #[Test]
+    public function it_voids_a_transaction_with_a_reason(): void
+    {
+        $http = $this->createMock(HttpClientInterface::class);
+        $http->expects($this->once())
+            ->method('post')
+            ->with('transactions/tx-123/void', ['reason' => 'rescheduled'])
+            ->willReturn(new Response(200, [
+                'success' => true,
+                'data' => $this->transactionData([
+                    'status' => 'void',
+                    'layer' => 'encumbrance',
+                    'voided_by' => ['type' => 'api_key', 'id' => 'key-1'],
+                    'voided_at' => '2026-06-19T10:00:00+00:00',
+                    'void_reason' => 'rescheduled',
+                ]),
+            ]));
+
+        $service = new TransactionService($http);
+        $voided = $service->void('tx-123', ['reason' => 'rescheduled']);
+
+        $this->assertSame('tx-123', $voided->id);
+        $this->assertSame(TransactionStatus::Void, $voided->status);
+        $this->assertSame('rescheduled', $voided->voidReason);
+        $this->assertSame(['type' => 'api_key', 'id' => 'key-1'], $voided->voidedBy);
+        $this->assertNotNull($voided->voidedAt);
+    }
+
+    #[Test]
+    public function it_voids_a_transaction_without_a_body(): void
+    {
+        $http = $this->createMock(HttpClientInterface::class);
+        $http->expects($this->once())
+            ->method('post')
+            ->with('transactions/tx-123/void', [])
+            ->willReturn(new Response(200, [
+                'data' => $this->transactionData(['status' => 'void', 'voided_by' => null]),
+            ]));
+
+        $voided = (new TransactionService($http))->void('tx-123');
+
+        $this->assertSame(TransactionStatus::Void, $voided->status);
+        $this->assertNull($voided->voidedBy);
+        $this->assertNull($voided->voidReason);
+    }
+
+    #[Test]
     public function it_creates_batch_transactions(): void
     {
         $http = $this->createMock(HttpClientInterface::class);
