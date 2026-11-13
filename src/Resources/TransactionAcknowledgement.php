@@ -15,6 +15,15 @@ use Ledga\Api\Exceptions\LedgaException;
  */
 final readonly class TransactionAcknowledgement implements ResourceInterface
 {
+    /**
+     * @param string $correlationId The transaction's correlation handle: the `correlation_id`
+     *                              sent; else, when it was linked with
+     *                              `correlation_source_id`, the source's handle; else the
+     *                              transaction's own id. Never null. Reads of the
+     *                              transaction return the same value, and
+     *                              {@see \Ledga\Api\Services\TransactionService::byCorrelation()}
+     *                              finds the transaction by it.
+     */
     public function __construct(
         public string $id,
         public TransactionStatus $status,

@@ -111,10 +111,25 @@ final class TransactionService extends AbstractService
      * need the durable transaction record. For trancode-driven posting (Mode 2) use
      * {@see self::createFromCode()} instead; the two modes are mutually exclusive.
      *
+     * Correlation fields (all optional):
+     *
+     * - `correlation_id` (string, max 50): groups related transactions. When omitted
+     *   and `correlation_source_id` is given, it defaults to the source's handle (its
+     *   `correlation_id`, else its id), so one handle finds both. An explicit value wins.
+     * - `correlation_source_id` (uuid): a predecessor transaction in the same ledger to
+     *   link to. One in another ledger, or unknown, is a 422.
+     * - `correlation_type` (string, max 50): how it is linked, e.g. `reschedule`.
+     *
+     * Send `correlation_source_id` and `correlation_type` together, or neither: either
+     * one alone is a 422. Reads return them on {@see Transaction::$correlationSourceId}
+     * and {@see Transaction::$correlationType}.
+     *
      * @param array<string, mixed> $data Transaction data — `description`, `effective_date`,
      *                                   `idempotency_key`, `entries` required;
-     *                                   `layer`, `journal_id`, `correlation_id`,
-     *                                   `correlation_type`, `metadata` optional.
+     *                                   `reference`, `layer`, `journal_id`, `attributes`,
+     *                                   `metadata`, `correlation_id`,
+     *                                   `correlation_source_id`, `correlation_type`
+     *                                   optional.
      */
     public function create(array $data): TransactionAcknowledgement
     {
@@ -131,12 +146,18 @@ final class TransactionService extends AbstractService
      * the expression engine, and writes the resulting balanced entries. Returns a
      * `TransactionAcknowledgement`; same async polling story as {@see self::create()}.
      *
+     * The correlation fields work as on {@see self::create()}: send
+     * `correlation_source_id` and `correlation_type` together or neither (either alone is
+     * a 422), and an omitted `correlation_id` defaults from the source.
+     *
      * @param string               $code   Trancode `code` (e.g. "BOOK_TRANSFER"). Must be active.
      * @param array<string, mixed> $params Parameter map matching the trancode's params_schema.
      * @param array<string, mixed> $extra  Wrapper fields — `description`, `effective_date`,
      *                                     `idempotency_key` are required by the server;
-     *                                     `layer`, `journal_id`, `correlation_id`,
-     *                                     `correlation_type`, `reference`, `metadata` optional.
+     *                                     `reference`, `layer`, `journal_id`, `attributes`,
+     *                                     `metadata`, `correlation_id`,
+     *                                     `correlation_source_id`, `correlation_type`
+     *                                     optional.
      *                                     Must NOT contain `entries`, `transaction_code`, or
      *                                     `transaction_code_params` — those keys are
      *                                     mode-discriminating and either set by this method
@@ -197,6 +218,20 @@ final class TransactionService extends AbstractService
      *
      * Each transaction is processed independently, supporting partial success.
      * Maximum 100 transactions per batch (configurable on server).
+     *
+     * Item fields — `idempotency_key`, `description`, `effective_date`, `entries`
+     * required; `reference`, `layer`, `journal_id`, `metadata`, `correlation_id`,
+     * `correlation_source_id`, `correlation_type` optional. Items take no `attributes`
+     * (a 422) and no `transaction_code`.
+     *
+     * The correlation fields work as on {@see self::create()}, except how a bad link fails:
+     *
+     * - `correlation_source_id` or `correlation_type` alone on any item refuses the whole
+     *   batch with a 422, keyed by that item (e.g. `transactions.0.correlation_source_id`).
+     * - A source not found in this ledger rejects only that item, with `errorCode`
+     *   `validation_error`; the other items post.
+     * - An item cannot link to a transaction another item of the same batch creates: that
+     *   id does not exist yet, so the item is rejected as not found.
      *
      * @param array<int, array<string, mixed>> $transactions Array of transaction data
      */
