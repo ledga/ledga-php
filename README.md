@@ -182,8 +182,8 @@ $transaction = $ledga->transactions->get($ack->id);
 // List transactions
 $transactions = $ledga->transactions->list([
     'status' => 'posted',
-    'start_date' => '2025-01-01',
-    'end_date' => '2025-01-31',
+    'from_date' => '2025-01-01',
+    'to_date' => '2025-01-31',
 ]);
 
 // Get a transaction
@@ -194,6 +194,10 @@ $reversal = $ledga->transactions->reverse('transaction-uuid', [
     'reason' => 'Customer refund',
     'date' => '2025-01-15',
 ]);
+
+// Void a posted transaction (no contra; entries are untouched)
+$voided = $ledga->transactions->void('transaction-uuid', ['reason' => 'rescheduled']);
+echo $voided->status->value . " " . $voided->voidReason; // "void rescheduled"
 
 // Create multiple transactions in a batch (max 100)
 $response = $ledga->transactions->createBatch([
@@ -226,6 +230,56 @@ if ($response->hasRejections()) {
     }
 }
 ```
+
+### Correlating transactions
+
+Link a transaction to the one it follows with `correlation_source_id` and `correlation_type`. Send both or neither: either one alone is a `422`. The source must be a transaction in the same ledger. `reversal`, `string_transfer` and `string_convert` are reserved for the API's own links, so a `correlation_type` of any of them is a `422`. To label a transaction without linking it, use `attributes`.
+
+```php
+// Void the old schedule item, then post its replacement linked to it
+$ledga->transactions->void($oldId, ['reason' => 'rescheduled']);
+
+$ack = $ledga->transactions->create([
+    'description' => 'Replacement encumbrance',
+    'effective_date' => '2026-02-15',
+    'idempotency_key' => 'resched-001',
+    'layer' => 'encumbrance',
+    'correlation_source_id' => $oldId,
+    'correlation_type' => 'reschedule',
+    'entries' => [
+        ['account_code' => '1300', 'type' => 'debit', 'amount' => '250.00'],
+        ['account_code' => '4000', 'type' => 'credit', 'amount' => '250.00'],
+    ],
+]);
+```
+
+**The correlation handle.** Every transaction has one: its `correlation_id`, or its own id when it has none. A linked transaction sent without a `correlation_id` takes its source's handle, so one handle finds both. An explicit `correlation_id` (at most 50 characters) wins, and then the source's handle does not find the new transaction. `$ack->correlationId` is the handle, and reads return the same value as `$transaction->correlationId`.
+
+**Reading the link back:**
+
+```php
+$transaction = $ledga->transactions->get($ack->id);
+
+$transaction->correlationId;       // the handle, never null
+$transaction->correlationSourceId; // $oldId
+$transaction->correlationType;     // "reschedule"
+```
+
+The link fields are both set or both `null`. A reversal reads its original as `correlationSourceId`, with `correlationType` `reversal`. The fields are `null` when the API predates them.
+
+**Looking up a trail.** `byCorrelation()` returns every transaction with a handle, oldest first (posting order). `list(['correlation_id' => …])` filters the same way but orders by effective date, newest first.
+
+```php
+$page = $ledga->transactions->byCorrelation($ack->correlationId, ['limit' => 25]);
+
+foreach ($ledga->transactions->allByCorrelation($ack->correlationId) as $transaction) {
+    echo $transaction->id . " " . $transaction->correlationType . "\n";
+}
+```
+
+The handle is sent URL-encoded in the query string, so values holding `/`, `%` or spaces work. An unknown handle, or another ledger's, returns an empty page, not a 404.
+
+**Batches.** `createBatch()` items take the same three fields. A lone `correlation_source_id` or `correlation_type`, or a reserved `correlation_type`, on any item refuses the whole batch with a `422`. A source not found in the ledger rejects only that item (`errorCode` `validation_error`); an item cannot link to a transaction created in the same batch.
 
 ### Transaction Codes (Templates)
 
@@ -346,8 +400,8 @@ $trialBalance = $ledga->reports->trialBalance([
 
 // Income statement
 $incomeStatement = $ledga->reports->incomeStatement([
-    'start_date' => '2025-01-01',
-    'end_date' => '2025-01-31',
+    'from_date' => '2025-01-01',
+    'to_date' => '2025-01-31',
 ]);
 ```
 
@@ -466,8 +520,12 @@ The wire format is canonical lowercase on both sides. The API normalises any cas
 | `pending` | Transaction submitted, awaiting processing |
 | `posted` | Transaction successfully recorded |
 | `void` | Transaction voided |
-| `failed` | Transaction failed validation |
 | `reversed` | Transaction has been reversed |
+| `draft` | In the API's status list; no endpoint sets it yet |
+| `verified` | Acknowledgement of a replayed `idempotency_key` only: the transaction passed integrity verification |
+| `failed` | Acknowledgement of a replayed `idempotency_key` only: the transaction failed integrity verification |
+
+`create()` returns `pending` for a new submission. A retry with the same `idempotency_key` may instead return the existing transaction's verification status (`pending`, `verified`, `failed` or `reversed`), which is not its status. Use `get($ack->id)` to read the status.
 
 ## Response shape and contract
 

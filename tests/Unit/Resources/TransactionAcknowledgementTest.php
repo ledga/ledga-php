@@ -31,6 +31,35 @@ final class TransactionAcknowledgementTest extends TestCase
         $this->assertSame('Transaction accepted', $ack->message);
     }
 
+    /**
+     * @return array<string, array{0: string, 1: TransactionStatus}>
+     */
+    public static function replayStatusProvider(): array
+    {
+        // A replayed idempotency_key returns the transaction's verification status.
+        return [
+            'pending' => ['pending', TransactionStatus::Pending],
+            'verified' => ['verified', TransactionStatus::Verified],
+            'failed' => ['failed', TransactionStatus::Failed],
+            'reversed' => ['reversed', TransactionStatus::Reversed],
+        ];
+    }
+
+    #[Test]
+    #[DataProvider('replayStatusProvider')]
+    public function from_array_parses_a_replay_verification_status(string $wire, TransactionStatus $expected): void
+    {
+        $ack = TransactionAcknowledgement::fromArray([
+            'id' => 'tx-1',
+            'status' => $wire,
+            'idempotency_key' => 'idem-1',
+            'correlation_id' => 'corr-1',
+            'message' => 'Transaction already exists (idempotent)',
+        ]);
+
+        $this->assertSame($expected, $ack->status);
+    }
+
     #[Test]
     public function message_is_optional(): void
     {

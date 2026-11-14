@@ -4,7 +4,14 @@ declare(strict_types=1);
 
 namespace Ledga\Api\Tests\Unit\Services;
 
+use GuzzleHttp\Client;
+use GuzzleHttp\Handler\MockHandler;
+use GuzzleHttp\HandlerStack;
+use GuzzleHttp\Middleware;
+use GuzzleHttp\Psr7\Response as GuzzleResponse;
+use Ledga\Api\Config;
 use Ledga\Api\Enums\TransactionStatus;
+use Ledga\Api\Http\GuzzleHttpClient;
 use Ledga\Api\Http\HttpClientInterface;
 use Ledga\Api\Http\Response;
 use Ledga\Api\Resources\BatchResponse;
@@ -13,6 +20,7 @@ use Ledga\Api\Services\TransactionService;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Psr\Http\Message\RequestInterface;
 
 final class TransactionServiceTest extends TestCase
 {
@@ -39,6 +47,33 @@ final class TransactionServiceTest extends TestCase
         $this->assertSame('tx-123', $ack->id);
         $this->assertSame(TransactionStatus::Pending, $ack->status);
         $this->assertSame('idem-1', $ack->idempotencyKey);
+    }
+
+    #[Test]
+    public function it_returns_an_acknowledgement_for_a_replayed_idempotency_key(): void
+    {
+        // Once the result cache expires, a replay is a 200 carrying the verification status.
+        $http = $this->createMock(HttpClientInterface::class);
+        $http->method('post')
+            ->with('transactions', $this->anything())
+            ->willReturn(new Response(200, ['data' => array_merge($this->ackData(), [
+                'status' => 'verified',
+                'message' => 'Transaction already exists (idempotent)',
+            ])]));
+
+        $service = new TransactionService($http);
+        $ack = $service->create([
+            'description' => 'Payment received',
+            'effective_date' => '2025-01-01',
+            'idempotency_key' => 'idem-1',
+            'entries' => [
+                ['account_code' => '1000', 'type' => 'debit', 'amount' => '100.00'],
+                ['account_code' => '4000', 'type' => 'credit', 'amount' => '100.00'],
+            ],
+        ]);
+
+        $this->assertSame('tx-123', $ack->id);
+        $this->assertSame(TransactionStatus::Verified, $ack->status);
     }
 
     #[Test]
@@ -159,6 +194,187 @@ final class TransactionServiceTest extends TestCase
         $this->assertSame('tx-456', $reversal->id);
         $this->assertSame('tx-123', $reversal->originalTransactionId);
         $this->assertSame('Customer refund', $reversal->reversalReason);
+    }
+
+    #[Test]
+    public function it_lists_a_correlation_trail_by_query_parameter(): void
+    {
+        $http = $this->createMock(HttpClientInterface::class);
+        $http->expects($this->once())
+            ->method('get')
+            ->with('transactions/correlation', ['limit' => 10, 'correlation_id' => 'INVOICE-42'])
+            ->willReturn(new Response(200, $this->page(
+                [
+                    $this->transactionData(['id' => 'tx-1', 'correlation_id' => 'INVOICE-42']),
+                    $this->transactionData([
+                        'id' => 'tx-2',
+                        'correlation_id' => 'INVOICE-42',
+                        'correlation_source_id' => 'tx-1',
+                        'correlation_type' => 'reversal',
+                    ]),
+                ],
+                'cursor-2',
+            )));
+
+        $service = new TransactionService($http);
+        $page = $service->byCorrelation('INVOICE-42', ['limit' => 10]);
+
+        $this->assertCount(2, $page->data);
+        $this->assertSame('tx-1', $page->data[0]->id);
+        $this->assertSame('tx-1', $page->data[1]->correlationSourceId);
+        $this->assertSame('reversal', $page->data[1]->correlationType);
+        $this->assertTrue($page->hasMore());
+    }
+
+    #[Test]
+    public function the_correlation_id_argument_wins_over_one_in_params(): void
+    {
+        $http = $this->createMock(HttpClientInterface::class);
+        $http->expects($this->once())
+            ->method('get')
+            ->with('transactions/correlation', ['correlation_id' => 'INVOICE-42'])
+            ->willReturn(new Response(200, $this->page([], null)));
+
+        $service = new TransactionService($http);
+        $page = $service->byCorrelation('INVOICE-42', ['correlation_id' => 'OTHER']);
+
+        $this->assertSame([], $page->data);
+    }
+
+    #[Test]
+    public function by_correlation_next_page_keeps_the_correlation_id(): void
+    {
+        $http = $this->createMock(HttpClientInterface::class);
+        $http->expects($this->exactly(2))
+            ->method('get')
+            ->willReturnCallback(function (string $path, array $query): Response {
+                $this->assertSame('transactions/correlation', $path);
+                $this->assertSame('INVOICE-42', $query['correlation_id']);
+
+                return isset($query['cursor'])
+                    ? new Response(200, $this->page([$this->transactionData(['id' => 'tx-2'])], null))
+                    : new Response(200, $this->page([$this->transactionData(['id' => 'tx-1'])], 'cursor-2'));
+            });
+
+        $service = new TransactionService($http);
+        $next = $service->byCorrelation('INVOICE-42')->nextPage();
+
+        $this->assertNotNull($next);
+        $this->assertSame('tx-2', $next->data[0]->id);
+    }
+
+    #[Test]
+    public function all_by_correlation_follows_every_page(): void
+    {
+        $calls = [];
+        $http = $this->createMock(HttpClientInterface::class);
+        $http->expects($this->exactly(2))
+            ->method('get')
+            ->willReturnCallback(function (string $path, array $query) use (&$calls): Response {
+                $calls[] = [$path, $query];
+
+                return isset($query['cursor'])
+                    ? new Response(200, $this->page([$this->transactionData(['id' => 'tx-2'])], null))
+                    : new Response(200, $this->page([$this->transactionData(['id' => 'tx-1'])], 'cursor-2'));
+            });
+
+        $service = new TransactionService($http);
+        $ids = array_map(
+            static fn ($tx) => $tx->id,
+            $service->allByCorrelation('INVOICE-42', ['limit' => 1])->toArray(),
+        );
+
+        $this->assertSame(['tx-1', 'tx-2'], $ids);
+        $this->assertSame([
+            ['transactions/correlation', ['limit' => 1, 'correlation_id' => 'INVOICE-42']],
+            ['transactions/correlation', ['limit' => 1, 'correlation_id' => 'INVOICE-42', 'cursor' => 'cursor-2']],
+        ], $calls);
+    }
+
+    /**
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function reservedCorrelationIdProvider(): array
+    {
+        return [
+            'slash' => ['INV/42', 'correlation_id=INV%2F42'],
+            'percent' => ['50%off', 'correlation_id=50%25off'],
+            'space' => ['order 42', 'correlation_id=order%2042'],
+            'ampersand and equals' => ['a&b=c', 'correlation_id=a%26b%3Dc'],
+        ];
+    }
+
+    #[Test]
+    #[DataProvider('reservedCorrelationIdProvider')]
+    public function it_sends_the_correlation_id_url_encoded_in_the_query_string(
+        string $correlationId,
+        string $expectedQuery,
+    ): void {
+        /** @var array<int, array{request: RequestInterface}> $history */
+        $history = [];
+        $stack = HandlerStack::create(new MockHandler([
+            new GuzzleResponse(200, [], (string) json_encode($this->page([], null))),
+        ]));
+        $stack->push(Middleware::history($history));
+        $http = new GuzzleHttpClient(
+            new Config('test-api-key', 'https://test.ledga.io'),
+            new Client(['handler' => $stack, 'base_uri' => 'https://test.ledga.io/api/v1/']),
+        );
+
+        (new TransactionService($http))->byCorrelation($correlationId);
+
+        $this->assertCount(1, $history);
+        $uri = $history[0]['request']->getUri();
+        $this->assertSame('/api/v1/transactions/correlation', $uri->getPath());
+        $this->assertSame($expectedQuery, $uri->getQuery());
+        parse_str($uri->getQuery(), $decoded);
+        $this->assertSame(['correlation_id' => $correlationId], $decoded);
+    }
+
+    #[Test]
+    public function it_voids_a_transaction_with_a_reason(): void
+    {
+        $http = $this->createMock(HttpClientInterface::class);
+        $http->expects($this->once())
+            ->method('post')
+            ->with('transactions/tx-123/void', ['reason' => 'rescheduled'])
+            ->willReturn(new Response(200, [
+                'success' => true,
+                'data' => $this->transactionData([
+                    'status' => 'void',
+                    'layer' => 'encumbrance',
+                    'voided_by' => ['type' => 'api_key', 'id' => 'key-1'],
+                    'voided_at' => '2026-06-19T10:00:00+00:00',
+                    'void_reason' => 'rescheduled',
+                ]),
+            ]));
+
+        $service = new TransactionService($http);
+        $voided = $service->void('tx-123', ['reason' => 'rescheduled']);
+
+        $this->assertSame('tx-123', $voided->id);
+        $this->assertSame(TransactionStatus::Void, $voided->status);
+        $this->assertSame('rescheduled', $voided->voidReason);
+        $this->assertSame(['type' => 'api_key', 'id' => 'key-1'], $voided->voidedBy);
+        $this->assertNotNull($voided->voidedAt);
+    }
+
+    #[Test]
+    public function it_voids_a_transaction_without_a_body(): void
+    {
+        $http = $this->createMock(HttpClientInterface::class);
+        $http->expects($this->once())
+            ->method('post')
+            ->with('transactions/tx-123/void', [])
+            ->willReturn(new Response(200, [
+                'data' => $this->transactionData(['status' => 'void', 'voided_by' => null]),
+            ]));
+
+        $voided = (new TransactionService($http))->void('tx-123');
+
+        $this->assertSame(TransactionStatus::Void, $voided->status);
+        $this->assertNull($voided->voidedBy);
+        $this->assertNull($voided->voidReason);
     }
 
     #[Test]
@@ -303,11 +519,32 @@ final class TransactionServiceTest extends TestCase
     }
 
     /**
+     * @param array<int, array<string, mixed>> $items
      * @return array<string, mixed>
      */
-    private function transactionData(): array
+    private function page(array $items, ?string $nextCursor): array
     {
         return [
+            'success' => true,
+            'data' => $items,
+            'meta' => [
+                'pagination' => [
+                    'limit' => 25,
+                    'has_more' => $nextCursor !== null,
+                    'next_cursor' => $nextCursor,
+                    'previous_cursor' => null,
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $overrides
+     * @return array<string, mixed>
+     */
+    private function transactionData(array $overrides = []): array
+    {
+        return array_merge([
             'id' => 'tx-123',
             'ledger_id' => 'ledger-1',
             'journal_id' => null,
@@ -327,6 +564,6 @@ final class TransactionServiceTest extends TestCase
             'entries' => [],
             'created_at' => '2025-01-01T12:00:00Z',
             'updated_at' => '2025-01-01T12:00:00Z',
-        ];
+        ], $overrides);
     }
 }
