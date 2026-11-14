@@ -521,7 +521,7 @@ The wire format is canonical lowercase on both sides. The API normalises any cas
 | `posted` | Transaction successfully recorded |
 | `void` | Transaction voided |
 | `reversed` | Transaction has been reversed |
-| `draft` | Transaction not yet posted |
+| `draft` | In the API's status list; no endpoint sets it yet |
 | `verified` | Acknowledgement of a replayed `idempotency_key` only: the transaction passed integrity verification |
 | `failed` | Acknowledgement of a replayed `idempotency_key` only: the transaction failed integrity verification |
 
