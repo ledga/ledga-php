@@ -119,7 +119,9 @@ final class TransactionService extends AbstractService
      *   `correlation_id`, else its id), so one handle finds both. An explicit value wins.
      * - `correlation_source_id` (uuid): a predecessor transaction in the same ledger to
      *   link to. One in another ledger, or unknown, is a 422.
-     * - `correlation_type` (string, max 50): how it is linked, e.g. `reschedule`.
+     * - `correlation_type` (string, max 50): how it is linked, e.g. `reschedule`. Not
+     *   `reversal`, `string_transfer` or `string_convert`: only the API writes those,
+     *   and sending one is a 422.
      *
      * Send `correlation_source_id` and `correlation_type` together, or neither: either
      * one alone is a 422. Reads return them on {@see Transaction::$correlationSourceId}
@@ -229,6 +231,8 @@ final class TransactionService extends AbstractService
      *
      * - `correlation_source_id` or `correlation_type` alone on any item refuses the whole
      *   batch with a 422, keyed by that item (e.g. `transactions.0.correlation_source_id`).
+     *   So does a reserved `correlation_type` (`reversal`, `string_transfer`,
+     *   `string_convert`) on any item.
      * - A source not found in this ledger rejects only that item, with `errorCode`
      *   `validation_error`; the other items post.
      * - An item cannot link to a transaction another item of the same batch creates: that

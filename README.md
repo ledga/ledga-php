@@ -233,7 +233,7 @@ if ($response->hasRejections()) {
 
 ### Correlating transactions
 
-Link a transaction to the one it follows with `correlation_source_id` and `correlation_type`. Send both or neither: either one alone is a `422`. The source must be a transaction in the same ledger. To label a transaction without linking it, use `attributes`.
+Link a transaction to the one it follows with `correlation_source_id` and `correlation_type`. Send both or neither: either one alone is a `422`. The source must be a transaction in the same ledger. `reversal`, `string_transfer` and `string_convert` are reserved for the API's own links, so a `correlation_type` of any of them is a `422`. To label a transaction without linking it, use `attributes`.
 
 ```php
 // Void the old schedule item, then post its replacement linked to it
@@ -279,7 +279,7 @@ foreach ($ledga->transactions->allByCorrelation($ack->correlationId) as $transac
 
 The handle is sent URL-encoded in the query string, so values holding `/`, `%` or spaces work. An unknown handle, or another ledger's, returns an empty page, not a 404.
 
-**Batches.** `createBatch()` items take the same three fields. A lone `correlation_source_id` or `correlation_type` on any item refuses the whole batch with a `422`. A source not found in the ledger rejects only that item (`errorCode` `validation_error`); an item cannot link to a transaction created in the same batch.
+**Batches.** `createBatch()` items take the same three fields. A lone `correlation_source_id` or `correlation_type`, or a reserved `correlation_type`, on any item refuses the whole batch with a `422`. A source not found in the ledger rejects only that item (`errorCode` `validation_error`); an item cannot link to a transaction created in the same batch.
 
 ### Transaction Codes (Templates)
 
