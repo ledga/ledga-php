@@ -11,4 +11,5 @@ enum TransactionStatus: string
     case Void = 'void';
     case Failed = 'failed';
     case Reversed = 'reversed';
+    case Draft = 'draft';
 }

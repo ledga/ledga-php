@@ -522,6 +522,7 @@ The wire format is canonical lowercase on both sides. The API normalises any cas
 | `void` | Transaction voided |
 | `failed` | Transaction failed validation |
 | `reversed` | Transaction has been reversed |
+| `draft` | Transaction not yet posted |
 
 ## Response shape and contract
 

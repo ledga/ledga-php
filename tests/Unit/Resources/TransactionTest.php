@@ -8,6 +8,7 @@ use Ledga\Api\Enums\EntryType;
 use Ledga\Api\Enums\TransactionLayer;
 use Ledga\Api\Enums\TransactionStatus;
 use Ledga\Api\Resources\Transaction;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -69,6 +70,30 @@ final class TransactionTest extends TestCase
         $this->assertCount(2, $transaction->entries);
         $this->assertSame(EntryType::Debit, $transaction->entries[0]->type);
         $this->assertSame(EntryType::Credit, $transaction->entries[1]->type);
+    }
+
+    /**
+     * @return array<string, array{0: string, 1: TransactionStatus}>
+     */
+    public static function statusProvider(): array
+    {
+        // Every value core's Transaction.status enum holds.
+        return [
+            'posted' => ['posted', TransactionStatus::Posted],
+            'reversed' => ['reversed', TransactionStatus::Reversed],
+            'void' => ['void', TransactionStatus::Void],
+            'draft' => ['draft', TransactionStatus::Draft],
+            'pending' => ['pending', TransactionStatus::Pending],
+        ];
+    }
+
+    #[Test]
+    #[DataProvider('statusProvider')]
+    public function it_parses_every_status_the_api_returns(string $wire, TransactionStatus $expected): void
+    {
+        $transaction = Transaction::fromArray(array_merge($this->minimalData(), ['status' => $wire]));
+
+        $this->assertSame($expected, $transaction->status);
     }
 
     #[Test]
