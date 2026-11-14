@@ -10,12 +10,17 @@ use Ledga\Api\Exceptions\LedgaException;
 /**
  * 202-style acknowledgement returned by `POST /transactions` (both direct entries and
  * trancode-driven posting). The server has accepted the request but not yet committed
- * the entries — fetch the full transaction via `transactions->get($ack->id)` once the
- * status moves off `Pending`.
+ * the entries — fetch the full transaction via `transactions->get($ack->id)`.
  */
 final readonly class TransactionAcknowledgement implements ResourceInterface
 {
     /**
+     * @param TransactionStatus $status `Pending` for a new submission. A replayed
+     *                              `idempotency_key` (a 200) may instead carry the
+     *                              transaction's integrity verification status:
+     *                              `Pending`, `Verified`, `Failed` or `Reversed`. It
+     *                              is not the transaction's own status; read that from
+     *                              `transactions->get($ack->id)`.
      * @param string $correlationId The transaction's correlation handle: the `correlation_id`
      *                              sent; else, when it was linked with
      *                              `correlation_source_id`, the source's handle; else the

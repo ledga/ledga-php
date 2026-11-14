@@ -50,6 +50,33 @@ final class TransactionServiceTest extends TestCase
     }
 
     #[Test]
+    public function it_returns_an_acknowledgement_for_a_replayed_idempotency_key(): void
+    {
+        // Once the result cache expires, a replay is a 200 carrying the verification status.
+        $http = $this->createMock(HttpClientInterface::class);
+        $http->method('post')
+            ->with('transactions', $this->anything())
+            ->willReturn(new Response(200, ['data' => array_merge($this->ackData(), [
+                'status' => 'verified',
+                'message' => 'Transaction already exists (idempotent)',
+            ])]));
+
+        $service = new TransactionService($http);
+        $ack = $service->create([
+            'description' => 'Payment received',
+            'effective_date' => '2025-01-01',
+            'idempotency_key' => 'idem-1',
+            'entries' => [
+                ['account_code' => '1000', 'type' => 'debit', 'amount' => '100.00'],
+                ['account_code' => '4000', 'type' => 'credit', 'amount' => '100.00'],
+            ],
+        ]);
+
+        $this->assertSame('tx-123', $ack->id);
+        $this->assertSame(TransactionStatus::Verified, $ack->status);
+    }
+
+    #[Test]
     public function it_creates_from_trancode(): void
     {
         $http = $this->createMock(HttpClientInterface::class);

@@ -520,9 +520,12 @@ The wire format is canonical lowercase on both sides. The API normalises any cas
 | `pending` | Transaction submitted, awaiting processing |
 | `posted` | Transaction successfully recorded |
 | `void` | Transaction voided |
-| `failed` | Transaction failed validation |
 | `reversed` | Transaction has been reversed |
 | `draft` | Transaction not yet posted |
+| `verified` | Acknowledgement of a replayed `idempotency_key` only: the transaction passed integrity verification |
+| `failed` | Acknowledgement of a replayed `idempotency_key` only: the transaction failed integrity verification |
+
+`create()` returns `pending` for a new submission. A retry with the same `idempotency_key` may instead return the existing transaction's verification status (`pending`, `verified`, `failed` or `reversed`), which is not its status. Use `get($ack->id)` to read the status.
 
 ## Response shape and contract
 
