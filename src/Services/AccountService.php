@@ -131,7 +131,7 @@ final class AccountService extends AbstractService
     /**
      * Get account balance history.
      *
-     * @param array<string, mixed> $params Optional parameters (start_date, end_date)
+     * @param array<string, mixed> $params Optional parameters (start_date, end_date, layer)
      */
     public function getBalanceHistory(string $id, array $params = []): BalanceHistory
     {
