@@ -28,7 +28,8 @@ final class TransactionService extends AbstractService
     /**
      * List transactions with manual pagination.
      *
-     * @param array<string, mixed> $params Filter parameters (status, layer, start_date, end_date, etc.)
+     * @param array<string, mixed> $params Filter parameters (status, layer, from_date, to_date,
+     *                                    correlation_id, limit, cursor)
      * @return PaginatedResponse<Transaction>
      */
     public function list(array $params = []): PaginatedResponse

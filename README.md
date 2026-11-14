@@ -182,8 +182,8 @@ $transaction = $ledga->transactions->get($ack->id);
 // List transactions
 $transactions = $ledga->transactions->list([
     'status' => 'posted',
-    'start_date' => '2025-01-01',
-    'end_date' => '2025-01-31',
+    'from_date' => '2025-01-01',
+    'to_date' => '2025-01-31',
 ]);
 
 // Get a transaction
@@ -400,8 +400,8 @@ $trialBalance = $ledga->reports->trialBalance([
 
 // Income statement
 $incomeStatement = $ledga->reports->incomeStatement([
-    'start_date' => '2025-01-01',
-    'end_date' => '2025-01-31',
+    'from_date' => '2025-01-01',
+    'to_date' => '2025-01-31',
 ]);
 ```
 
