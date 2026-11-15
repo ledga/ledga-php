@@ -107,10 +107,19 @@ final class TransactionService extends AbstractService
     /**
      * Submit a new transaction with explicit entries (Mode 1).
      *
-     * Returns a `TransactionAcknowledgement` — the server has accepted the request
-     * but not yet committed entries. Poll with `transactions->get($ack->id)` once you
-     * need the durable transaction record. For trancode-driven posting (Mode 2) use
+     * Returns a `TransactionAcknowledgement`. The transaction is written before the API
+     * answers, so `transactions->get($ack->id)` reads it; only its integrity
+     * verification runs afterwards. For trancode-driven posting (Mode 2) use
      * {@see self::createFromCode()} instead; the two modes are mutually exclusive.
+     *
+     * A retry with the same `idempotency_key` and the same body is a replay: nothing is
+     * written, and it returns the original acknowledgement. These throw a
+     * `LedgaConflictException` (409) instead, with `meta.error_code` in its `errorBody`:
+     *
+     * - `idempotency_key_reused`: the key with a different body, or a key this ledger
+     *   used for a reversal or another writer gave a transaction.
+     * - `idempotency_key_in_use` or `idempotency_lock_failed`: a request with the key is
+     *   still running. Retry it.
      *
      * Correlation fields (all optional):
      *
@@ -147,7 +156,8 @@ final class TransactionService extends AbstractService
      * The server resolves $code to an active trancode in the current ledger, validates
      * $params against the trancode's params_schema, runs the entries template through
      * the expression engine, and writes the resulting balanced entries. Returns a
-     * `TransactionAcknowledgement`; same async polling story as {@see self::create()}.
+     * `TransactionAcknowledgement`, and replays and refuses a reused key, as
+     * {@see self::create()} does.
      *
      * The correlation fields work as on {@see self::create()}: send
      * `correlation_source_id` and `correlation_type` together or neither (either alone is
@@ -237,6 +247,11 @@ final class TransactionService extends AbstractService
      *   `validation_error`; the other items post.
      * - An item cannot link to a transaction another item of the same batch creates: that
      *   id does not exist yet, so the item is rejected as not found.
+     *
+     * Each item's `idempotency_key` follows the rules on {@see self::create()}. A replayed
+     * item is accepted with the original posting's `id`; a refused one is rejected with
+     * `errorCode` `idempotency_key_reused`, or `idempotency_key_in_use` or
+     * `idempotency_lock_failed` while a request with its key is still running.
      *
      * @param array<int, array<string, mixed>> $transactions Array of transaction data
      */

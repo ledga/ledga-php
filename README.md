@@ -144,7 +144,9 @@ echo "Ending balance: " . $history->endingBalance;
 
 ### Transactions
 
-`POST /transactions` is asynchronous: `create()` and `createFromCode()` return a `TransactionAcknowledgement` (the server has accepted the request but not yet committed entries). Poll `get($ack->id)` once you need the durable record.
+`create()` and `createFromCode()` return a `TransactionAcknowledgement`. The transaction is written before the API answers, so `get($ack->id)` reads it; only its integrity verification runs afterwards.
+
+A retry with the same `idempotency_key` and the same body is a replay: nothing is written, and it returns the original acknowledgement. The same key with a different body, or one already used for something else such as a reversal, throws `LedgaConflictException` with `meta.error_code` `idempotency_key_reused` in its `errorBody`. While a request with the key is still running, the code is `idempotency_key_in_use` or `idempotency_lock_failed`: retry it.
 
 ```php
 // Mode 1 — explicit entries
@@ -176,7 +178,7 @@ $ack = $ledga->transactions->createFromCode(
     ],
 );
 
-// Once the ack is produced, fetch the full Transaction
+// Fetch the full Transaction
 $transaction = $ledga->transactions->get($ack->id);
 
 // List transactions
@@ -230,6 +232,8 @@ if ($response->hasRejections()) {
     }
 }
 ```
+
+Each item's `idempotency_key` follows the same rules. A replayed item is accepted with the original posting's `id`; a refused one is rejected with its `errorCode`.
 
 ### Correlating transactions
 
@@ -522,10 +526,10 @@ The wire format is canonical lowercase on both sides. The API normalises any cas
 | `void` | Transaction voided |
 | `reversed` | Transaction has been reversed |
 | `draft` | In the API's status list; no endpoint sets it yet |
-| `verified` | Acknowledgement of a replayed `idempotency_key` only: the transaction passed integrity verification |
-| `failed` | Acknowledgement of a replayed `idempotency_key` only: the transaction failed integrity verification |
+| `verified` | Sent only by an earlier API version, on a replayed `idempotency_key`: verification passed |
+| `failed` | Sent only by an earlier API version, on a replayed `idempotency_key`: verification failed |
 
-`create()` returns `pending` for a new submission. A retry with the same `idempotency_key` may instead return the existing transaction's verification status (`pending`, `verified`, `failed` or `reversed`), which is not its status. Use `get($ack->id)` to read the status.
+`create()` returns `pending` for a new posting and for every replay of its `idempotency_key`. That is not the transaction's status: use `get($ack->id)` to read it.
 
 ## Response shape and contract
 
@@ -533,7 +537,7 @@ The wire format is canonical lowercase on both sides. The API normalises any cas
 - Cursor pagination metadata lives at `meta.pagination.{next_cursor, previous_cursor, limit, has_more}`. Use the `PaginatedResponse->nextCursor`, `prevCursor`, `perPage`, and `hasMore()` accessors.
 - `Account::$category` is an `AccountCategory` enum. Compare with cases, not strings: `$account->category === AccountCategory::System`.
 - Transaction codes are served at `/api/v1/trancodes`. Supported methods: `list`, `all`, `get`, `create`, `update`, `validateParams`, `deprecate`. Trancodes are append-only — `code` and `status` are immutable on PUT, and `deprecate()` is a one-way transition (no reactivate). `TransactionCode::$status` is a `TransactionCodeStatus` enum (`Active`, `Deprecated`).
-- `POST /transactions` is asynchronous and returns a `TransactionAcknowledgement` (id, status, idempotency key, correlation id, message). Both modes — explicit entries (`create()`) and trancode invocation (`createFromCode()`) — funnel through this endpoint. Use `transactions->get($ack->id)` to fetch the durable transaction once accepted.
+- `POST /transactions` returns a `TransactionAcknowledgement` (id, status, idempotency key, correlation id, message): a `202` for a new posting, a `200` for a replay. Both modes — explicit entries (`create()`) and trancode invocation (`createFromCode()`) — funnel through this endpoint. The transaction is written before the response; use `transactions->get($ack->id)` to fetch it.
 
 ## Testing
 

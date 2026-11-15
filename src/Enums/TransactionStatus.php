@@ -8,19 +8,20 @@ namespace Ledga\Api\Enums;
  * A transaction's status. `Transaction::$status` is one of Pending, Posted, Void,
  * Reversed or Draft.
  *
- * `TransactionAcknowledgement::$status` is Pending for a new submission. For a
- * replayed idempotency key the API may send the transaction's integrity
- * verification status instead, which can also be Verified or Failed.
+ * `TransactionAcknowledgement::$status` is always Pending, on a new posting and on
+ * every replay of its idempotency key. Verified and Failed are kept so that a replay
+ * from an earlier API version, which could carry the transaction's integrity
+ * verification status, still parses.
  */
 enum TransactionStatus: string
 {
     case Pending = 'pending';
     case Posted = 'posted';
     case Void = 'void';
-    /** Acknowledgement of a replay only: the transaction failed integrity verification. */
+    /** Sent only by an earlier API version's replay: verification failed. */
     case Failed = 'failed';
     case Reversed = 'reversed';
     case Draft = 'draft';
-    /** Acknowledgement of a replay only: the transaction passed integrity verification. */
+    /** Sent only by an earlier API version's replay: verification passed. */
     case Verified = 'verified';
 }
