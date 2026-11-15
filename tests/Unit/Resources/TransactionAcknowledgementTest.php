@@ -36,7 +36,7 @@ final class TransactionAcknowledgementTest extends TestCase
      */
     public static function replayStatusProvider(): array
     {
-        // A replayed idempotency_key returns the transaction's verification status.
+        // An earlier API version's replay could carry the transaction's verification status.
         return [
             'pending' => ['pending', TransactionStatus::Pending],
             'verified' => ['verified', TransactionStatus::Verified],
@@ -47,7 +47,7 @@ final class TransactionAcknowledgementTest extends TestCase
 
     #[Test]
     #[DataProvider('replayStatusProvider')]
-    public function from_array_parses_a_replay_verification_status(string $wire, TransactionStatus $expected): void
+    public function from_array_parses_an_earlier_api_versions_replay_status(string $wire, TransactionStatus $expected): void
     {
         $ack = TransactionAcknowledgement::fromArray([
             'id' => 'tx-1',
