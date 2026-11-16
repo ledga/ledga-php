@@ -29,7 +29,7 @@ final class ReportService
     /**
      * Get income statement report.
      *
-     * @param array<string, mixed> $params Report parameters (start_date, end_date)
+     * @param array<string, mixed> $params Report parameters (from_date, to_date, layer)
      * @return array<string, mixed>
      */
     public function incomeStatement(array $params = []): array

@@ -13,6 +13,18 @@ final readonly class Transaction implements ResourceInterface
     /**
      * @param Entry[] $entries
      * @param array<string, mixed>|null $metadata
+     * @param string|null $correlationId The transaction's correlation handle: its stored
+     *                                   `correlation_id`, else its own id. Servers since
+     *                                   the correlation-links release never send null.
+     * @param string|null $correlationSourceId The transaction this one is linked to: the
+     *                                         `correlation_source_id` it was posted with, or a
+     *                                         reversal's original. Null when nothing links it.
+     * @param string|null $correlationType How it is linked: the `correlation_type` it was
+     *                                     posted with, or `reversal`. Set or null together
+     *                                     with $correlationSourceId.
+     * @param array{type: string, id: string}|null $voidedBy Who voided it: `type` is `user`
+     *                                                       or `api_key`. Null when not
+     *                                                       voided, or no actor was recorded.
      */
     public function __construct(
         public string $id,
@@ -34,6 +46,11 @@ final readonly class Transaction implements ResourceInterface
         public array $entries,
         public DateTimeImmutable $createdAt,
         public DateTimeImmutable $updatedAt,
+        public ?string $correlationSourceId = null,
+        public ?string $correlationType = null,
+        public ?array $voidedBy = null,
+        public ?DateTimeImmutable $voidedAt = null,
+        public ?string $voidReason = null,
     ) {
     }
 
@@ -69,6 +86,11 @@ final readonly class Transaction implements ResourceInterface
             entries: $entries,
             createdAt: new DateTimeImmutable($data['created_at']),
             updatedAt: new DateTimeImmutable($data['updated_at']),
+            correlationSourceId: $data['correlation_source_id'] ?? null,
+            correlationType: $data['correlation_type'] ?? null,
+            voidedBy: $data['voided_by'] ?? null,
+            voidedAt: isset($data['voided_at']) ? new DateTimeImmutable($data['voided_at']) : null,
+            voidReason: $data['void_reason'] ?? null,
         );
     }
 }

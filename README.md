@@ -144,7 +144,9 @@ echo "Ending balance: " . $history->endingBalance;
 
 ### Transactions
 
-`POST /transactions` is asynchronous: `create()` and `createFromCode()` return a `TransactionAcknowledgement` (the server has accepted the request but not yet committed entries). Poll `get($ack->id)` once you need the durable record.
+`create()` and `createFromCode()` return a `TransactionAcknowledgement`. The transaction is written before the API answers, so `get($ack->id)` reads it; only its integrity verification runs afterwards.
+
+A retry with the same `idempotency_key` and the same body is a replay: nothing is written, and it returns the original acknowledgement. The same key with a different body, or one already used for something else such as a reversal, throws `LedgaConflictException` with `meta.error_code` `idempotency_key_reused` in its `errorBody`. While a request with the key is still running, the code is `idempotency_key_in_use` or `idempotency_lock_failed`: retry it.
 
 ```php
 // Mode 1 — explicit entries
@@ -176,14 +178,14 @@ $ack = $ledga->transactions->createFromCode(
     ],
 );
 
-// Once the ack is produced, fetch the full Transaction
+// Fetch the full Transaction
 $transaction = $ledga->transactions->get($ack->id);
 
 // List transactions
 $transactions = $ledga->transactions->list([
     'status' => 'posted',
-    'start_date' => '2025-01-01',
-    'end_date' => '2025-01-31',
+    'from_date' => '2025-01-01',
+    'to_date' => '2025-01-31',
 ]);
 
 // Get a transaction
@@ -194,6 +196,10 @@ $reversal = $ledga->transactions->reverse('transaction-uuid', [
     'reason' => 'Customer refund',
     'date' => '2025-01-15',
 ]);
+
+// Void a posted transaction (no contra; entries are untouched)
+$voided = $ledga->transactions->void('transaction-uuid', ['reason' => 'rescheduled']);
+echo $voided->status->value . " " . $voided->voidReason; // "void rescheduled"
 
 // Create multiple transactions in a batch (max 100)
 $response = $ledga->transactions->createBatch([
@@ -226,6 +232,58 @@ if ($response->hasRejections()) {
     }
 }
 ```
+
+Each item's `idempotency_key` follows the same rules. A replayed item is accepted with the original posting's `id`; a refused one is rejected with its `errorCode`.
+
+### Correlating transactions
+
+Link a transaction to the one it follows with `correlation_source_id` and `correlation_type`. Send both or neither: either one alone is a `422`. The source must be a transaction in the same ledger. `reversal`, `string_transfer` and `string_convert` are reserved for the API's own links, so a `correlation_type` of any of them is a `422`. To label a transaction without linking it, use `attributes`.
+
+```php
+// Void the old schedule item, then post its replacement linked to it
+$ledga->transactions->void($oldId, ['reason' => 'rescheduled']);
+
+$ack = $ledga->transactions->create([
+    'description' => 'Replacement encumbrance',
+    'effective_date' => '2026-02-15',
+    'idempotency_key' => 'resched-001',
+    'layer' => 'encumbrance',
+    'correlation_source_id' => $oldId,
+    'correlation_type' => 'reschedule',
+    'entries' => [
+        ['account_code' => '1300', 'type' => 'debit', 'amount' => '250.00'],
+        ['account_code' => '4000', 'type' => 'credit', 'amount' => '250.00'],
+    ],
+]);
+```
+
+**The correlation handle.** Every transaction has one: its `correlation_id`, or its own id when it has none. A linked transaction sent without a `correlation_id` takes its source's handle, so one handle finds both. An explicit `correlation_id` (at most 50 characters) wins, and then the source's handle does not find the new transaction. `$ack->correlationId` is the handle, and reads return the same value as `$transaction->correlationId`.
+
+**Reading the link back:**
+
+```php
+$transaction = $ledga->transactions->get($ack->id);
+
+$transaction->correlationId;       // the handle, never null
+$transaction->correlationSourceId; // $oldId
+$transaction->correlationType;     // "reschedule"
+```
+
+The link fields are both set or both `null`. A reversal reads its original as `correlationSourceId`, with `correlationType` `reversal`. The fields are `null` when the API predates them.
+
+**Looking up a trail.** `byCorrelation()` returns every transaction with a handle, oldest first (posting order). `list(['correlation_id' => …])` filters the same way but orders by effective date, newest first.
+
+```php
+$page = $ledga->transactions->byCorrelation($ack->correlationId, ['limit' => 25]);
+
+foreach ($ledga->transactions->allByCorrelation($ack->correlationId) as $transaction) {
+    echo $transaction->id . " " . $transaction->correlationType . "\n";
+}
+```
+
+The handle is sent URL-encoded in the query string, so values holding `/`, `%` or spaces work. An unknown handle, or another ledger's, returns an empty page, not a 404.
+
+**Batches.** `createBatch()` items take the same three fields. A lone `correlation_source_id` or `correlation_type`, or a reserved `correlation_type`, on any item refuses the whole batch with a `422`. A source not found in the ledger rejects only that item (`errorCode` `validation_error`); an item cannot link to a transaction created in the same batch.
 
 ### Transaction Codes (Templates)
 
@@ -346,8 +404,8 @@ $trialBalance = $ledga->reports->trialBalance([
 
 // Income statement
 $incomeStatement = $ledga->reports->incomeStatement([
-    'start_date' => '2025-01-01',
-    'end_date' => '2025-01-31',
+    'from_date' => '2025-01-01',
+    'to_date' => '2025-01-31',
 ]);
 ```
 
@@ -466,8 +524,12 @@ The wire format is canonical lowercase on both sides. The API normalises any cas
 | `pending` | Transaction submitted, awaiting processing |
 | `posted` | Transaction successfully recorded |
 | `void` | Transaction voided |
-| `failed` | Transaction failed validation |
 | `reversed` | Transaction has been reversed |
+| `draft` | In the API's status list; no endpoint sets it yet |
+| `verified` | Sent only by an earlier API version, on a replayed `idempotency_key`: verification passed |
+| `failed` | Sent only by an earlier API version, on a replayed `idempotency_key`: verification failed |
+
+`create()` returns `pending` for a new posting and for every replay of its `idempotency_key`. That is not the transaction's status: use `get($ack->id)` to read it.
 
 ## Response shape and contract
 
@@ -475,7 +537,7 @@ The wire format is canonical lowercase on both sides. The API normalises any cas
 - Cursor pagination metadata lives at `meta.pagination.{next_cursor, previous_cursor, limit, has_more}`. Use the `PaginatedResponse->nextCursor`, `prevCursor`, `perPage`, and `hasMore()` accessors.
 - `Account::$category` is an `AccountCategory` enum. Compare with cases, not strings: `$account->category === AccountCategory::System`.
 - Transaction codes are served at `/api/v1/trancodes`. Supported methods: `list`, `all`, `get`, `create`, `update`, `validateParams`, `deprecate`. Trancodes are append-only — `code` and `status` are immutable on PUT, and `deprecate()` is a one-way transition (no reactivate). `TransactionCode::$status` is a `TransactionCodeStatus` enum (`Active`, `Deprecated`).
-- `POST /transactions` is asynchronous and returns a `TransactionAcknowledgement` (id, status, idempotency key, correlation id, message). Both modes — explicit entries (`create()`) and trancode invocation (`createFromCode()`) — funnel through this endpoint. Use `transactions->get($ack->id)` to fetch the durable transaction once accepted.
+- `POST /transactions` returns a `TransactionAcknowledgement` (id, status, idempotency key, correlation id, message): a `202` for a new posting, a `200` for a replay. Both modes — explicit entries (`create()`) and trancode invocation (`createFromCode()`) — funnel through this endpoint. The transaction is written before the response; use `transactions->get($ack->id)` to fetch it.
 
 ## Testing
 
